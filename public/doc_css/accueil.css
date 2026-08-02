@@ -1,0 +1,484 @@
+/* ------------------------------------------------------------------ */
+/* Zone d'accueil : panel sans entête, body = NavigateurModerne seul   */
+/* ------------------------------------------------------------------ */
+
+.accueil-corps {
+    padding: 0;
+}
+
+/* Couleur d'avatar par examen, pour distinguer TCF de TEF d'un coup
+   d'œil malgré le même code d'épreuve (CE/CO/EE/EO) affiché dedans. */
+.accueil-corps .nm-btn-tcf .nm-btn-avatar {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
+.accueil-corps .nm-btn-tef .nm-btn-avatar {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+
+/* Sélection (bouton actif) alignée sur la couleur de l'avatar de
+   l'examen : couleur étendue jusqu'au texte (titre + donnée) et au
+   box-shadow, pas seulement l'avatar — vert pour TEF, bleu pour TCF. */
+.accueil-corps .nm-btn-tcf.nm-btn-actif {
+    background: #eff6ff;
+    border-color: #2563eb;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+.accueil-corps .nm-btn-tcf.nm-btn-actif .nm-btn-titre {
+    color: #1d4ed8;
+}
+
+.accueil-corps .nm-btn-tcf.nm-btn-actif .nm-btn-donnee {
+    color: #2563eb;
+}
+
+.accueil-corps .nm-btn-tef.nm-btn-actif {
+    background: #ecfdf5;
+    border-color: #16a34a;
+    box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+}
+
+.accueil-corps .nm-btn-tef.nm-btn-actif .nm-btn-titre {
+    color: #15803d;
+}
+
+.accueil-corps .nm-btn-tef.nm-btn-actif .nm-btn-donnee {
+    color: #16a34a;
+}
+
+/* ------------------------------------------------------------------ */
+/* NavigateurCarte : navigation par cartes (TCF / TEF) à gauche, page  */
+/* active (navigationModerne CE/CO/EE/EO) à droite.                    */
+/* ------------------------------------------------------------------ */
+
+.cnav-root {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+}
+
+/* --- Colonne de gauche : les cartes --- */
+.cnav-colonne {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 200px;
+    flex-shrink: 0;
+    padding: 16px;
+    overflow-y: auto;
+    background: #fafbfc;
+    border-right: 1px solid #e5e7eb;
+}
+
+/* --- Zone de droite : contenu de la carte active --- */
+.cnav-pages {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.cnav-page {
+    height: 100%;
+}
+
+/* --- Carte de navigation (bouton) --- */
+.cnav-carte {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    width: 100%;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #ffffff;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    outline: none;
+    box-sizing: border-box;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.cnav-carte:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(17, 24, 39, 0.08);
+}
+
+.cnav-carte:active {
+    transform: translateY(0);
+}
+
+.cnav-carte-entete {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cnav-carte-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    border-radius: 14px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+.cnav-carte-textes {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.cnav-carte-titre {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.cnav-carte-sous-titre {
+    font-size: 12px;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cnav-carte-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cnav-carte-stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #f3f4f6;
+}
+
+.cnav-carte-stat-label {
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #6b7280;
+}
+
+.cnav-carte-stat-valeur {
+    min-width: 30px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.08);
+}
+
+/* --- Accent TCF (bleu) / TEF (vert) --- */
+.cnav-tcf .cnav-carte-badge {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
+.cnav-tef .cnav-carte-badge {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+
+.cnav-carte.cnav-tcf:hover {
+    border-color: #93c5fd;
+}
+
+.cnav-carte.cnav-tef:hover {
+    border-color: #86efac;
+}
+
+/* --- Carte active --- */
+.cnav-carte.cnav-carte-actif {
+    box-shadow: 0 8px 20px rgba(17, 24, 39, 0.1);
+}
+
+.cnav-carte.cnav-tcf.cnav-carte-actif {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.25);
+}
+
+.cnav-carte.cnav-tef.cnav-carte-actif {
+    border-color: #22c55e;
+    background: #f0fdf4;
+    box-shadow: 0 8px 20px rgba(34, 197, 94, 0.25);
+}
+
+.cnav-carte.cnav-tcf.cnav-carte-actif .cnav-carte-stat {
+    background: #dbeafe;
+}
+
+.cnav-carte.cnav-tef.cnav-carte-actif .cnav-carte-stat {
+    background: #dcfce7;
+}
+
+.cnav-carte.cnav-tcf.cnav-carte-actif .cnav-carte-stat-label {
+    color: #1d4ed8;
+}
+
+.cnav-carte.cnav-tef.cnav-carte-actif .cnav-carte-stat-label {
+    color: #15803d;
+}
+
+.cnav-carte.cnav-tcf.cnav-carte-actif .cnav-carte-stat-valeur {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.cnav-carte.cnav-tef.cnav-carte-actif .cnav-carte-stat-valeur {
+    background: #16a34a;
+    color: #ffffff;
+}
+
+.cnav-carte.cnav-tcf.cnav-carte-actif .cnav-carte-titre {
+    color: #1d4ed8;
+}
+
+.cnav-carte.cnav-tef.cnav-carte-actif .cnav-carte-titre {
+    color: #15803d;
+}
+
+/* ------------------------------------------------------------------ */
+/* Corps d'une page CE/CO/EE/EO (ouverte par un NavigateurModerne) :   */
+/*   - .nm-page-reste  : le reste de la page (centre), zone           */
+/*     d'affichage du contenu de la carte sélectionnée.               */
+/*   - .nm-page-cartes : zone à droite, colonne de cartes de série.   */
+/* ------------------------------------------------------------------ */
+
+.nm-page-corps {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    min-height: 320px;
+    height: 100%;
+}
+
+/* --- Le reste de la page : zone d'affichage du contenu sélectionné --- */
+.nm-page-reste {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #fafbfc;
+    border: 1px solid #e5e7eb;
+}
+
+.nm-page-reste-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 200px;
+    padding: 24px;
+    color: #6b7280;
+    font-size: 13.5px;
+    text-align: center;
+}
+
+/* --- Zone à droite : colonne de cartes (réduite, scroll indépendant) --- */
+.nm-page-cartes {
+    width: 220px;
+    flex-shrink: 0;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.nm-page-cartes .stack-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* --- Carte de série (TEF), une par série pour le type de la page --- */
+.nm-carte-elt {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.nm-carte-elt:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(17, 24, 39, 0.08);
+}
+
+.nm-carte-elt-entete {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.nm-carte-elt-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+.nm-carte-elt-titre {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nm-carte-elt-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nm-carte-elt-section-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin-bottom: 4px;
+}
+
+.nm-carte-elt-section-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.nm-carte-elt-section-stats--vide {
+    font-size: 11.5px;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.nm-carte-elt-stat-bloc {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    font-size: 11px;
+}
+
+.nm-carte-elt-stat-valeur {
+    font-weight: 800;
+    color: #111827;
+}
+
+.nm-carte-elt-stat-label {
+    color: #6b7280;
+}
+
+/* --- Accents de couleur par type --- */
+.nm-carte-elt--ce .nm-carte-elt-badge { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+.nm-carte-elt--co .nm-carte-elt-badge { background: linear-gradient(135deg, #0891b2, #22d3ee); }
+.nm-carte-elt--ee .nm-carte-elt-badge { background: linear-gradient(135deg, #d97706, #f59e0b); }
+.nm-carte-elt--eo .nm-carte-elt-badge { background: linear-gradient(135deg, #db2777, #f472b6); }
+
+/* --- Carte active (sélectionnée) --- */
+.nm-carte-elt.nm-carte-elt-actif {
+    border-color: #6366f1;
+    background: #eef2ff;
+    box-shadow: 0 8px 18px rgba(99, 102, 241, 0.2);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bouton de menu global (posé sur le porteur du panel, pas le body)   */
+/* + petit cadre "Paramètres" / "Extraction" (icône + texte).          */
+/* ------------------------------------------------------------------ */
+
+.bout-menu-accueil {
+    position: absolute;
+    display: block;
+    height: 50px;
+    width: 50px;
+    font-size: 30px;
+    border-radius: 50%;
+    border: var(--bordure-simple);
+    background-color: #97cbe9;
+    color: #2c2c2c;
+    bottom: 20px;
+    right: 20px;
+}
+
+.menu-accueil-cadre {
+    position: absolute;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    bottom: 80px;
+    right: 20px;
+    min-width: 180px;
+    padding: 6px;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: var(--box-shadow);
+    z-index: var(--z-index-critical);
+}
+
+.menu-accueil-cadre--visible {
+    display: flex;
+}
+
+.menu-accueil-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    font-size: var(--font-size-medium, 14px);
+    cursor: pointer;
+}
+
+.menu-accueil-item:hover {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.menu-accueil-item .iconMateriel {
+    font-size: 20px;
+}

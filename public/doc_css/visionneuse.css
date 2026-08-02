@@ -1,0 +1,40 @@
+/* ==========================================================
+   Zone "Visionneuse" (zoneVisionneuse.ts)
+   Affiche une image en grand : si une dimension réelle est plus
+   petite que l'espace disponible, elle garde sa taille réelle et
+   reste centrée sur cet axe ; si elle dépasse, elle est réduite pour
+   tenir dans l'espace disponible (avec padding), sans jamais être
+   agrandie au-delà de sa taille réelle.
+   ========================================================== */
+
+.zed-visionneuse-body {
+  padding: 0;
+  background-color: #14141c;
+}
+
+.zed-visionneuse-zone {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  /* centre l'axe Y quand la hauteur réelle est plus petite */
+  justify-content: center;
+  /* centre l'axe X quand la largeur réelle est plus petite */
+  padding: 40px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.zed-visionneuse-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  /* jamais agrandie au-delà de sa taille réelle */
+  width: auto;
+  height: auto;
+  /* si une dimension dépasse, elle est réduite proportionnellement
+     pour tenir dans l'espace disponible (l'autre reste centrée) */
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}

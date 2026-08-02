@@ -1,0 +1,509 @@
+[
+  {
+    "points": 3,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563936066-lr33kk.mp3",
+    "imageUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/images/b54ff8ad3a8a35347943d0284ba5098b06cb243b38aae0fffe48e6bccdd960df.png",
+    "prompt": "Question 1 : Écoutez les 4 propositions, choisissez celle qui correspond à l’image",
+    "options": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "correctAnswerIndex": 1
+  },
+  {
+    "points": 3,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563931355-fkpiyw.mp3",
+    "imageUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/images/5d40c15978570aaa6bc416a7396aaa31b97a7b2f54dc54c0cb3b8bcad25257ce.png",
+    "prompt": "Question 2 : Écoutez les 4 propositions, choisissez celle qui correspond à l’image",
+    "options": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "correctAnswerIndex": 3
+  },
+  {
+    "points": 3,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563929522-rsylnq.mp3",
+    "imageUrl": "",
+    "prompt": "Question 3 : Écoutez l’extrait sonore et les 4 propositions. Choisissez la bonne réponse",
+    "options": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 3,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928580-p2d2wk.mp3",
+    "imageUrl": "",
+    "prompt": "Question 4 : Écoutez l’extrait sonore et les 4 propositions. Choisissez la bonne réponse",
+    "options": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 9,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563929502-t0p6oe.mp3",
+    "imageUrl": "",
+    "prompt": "Question 5 : Écoutez l’extrait sonore et les 4 propositions. Choisissez la bonne réponse",
+    "options": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "correctAnswerIndex": 1
+  },
+  {
+    "points": 9,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928506-lvvwqi.mp3",
+    "imageUrl": "",
+    "prompt": "Question 6 : Écoutez l’extrait sonore et les 4 propositions. Choisissez la bonne réponse",
+    "options": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 9,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928220-0llmtk.mp3",
+    "imageUrl": "",
+    "prompt": "Question 7 : Écoutez l’extrait sonore et les 4 propositions. Choisissez la bonne réponse",
+    "options": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 9,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928588-f1fb4v.mp3",
+    "imageUrl": "",
+    "prompt": "Question 8 : Écoutez l’extrait sonore et les 4 propositions. Choisissez la bonne réponse",
+    "options": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 9,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928867-7hancy.mp3",
+    "imageUrl": "",
+    "prompt": "Question 9 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Acheter des médicaments.",
+      "Envoyer une lettre.",
+      "Prendre un transport.",
+      "Voir un film."
+    ],
+    "correctAnswerIndex": 1
+  },
+  {
+    "points": 9,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928707-180ybm.mp3",
+    "imageUrl": "",
+    "prompt": "Question 10 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "D’arriver en retard.",
+      "D’avoir une mauvaise note.",
+      "De manquer de temps.",
+      "De tomber malade."
+    ],
+    "correctAnswerIndex": 1
+  },
+  {
+    "points": 15,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930278-i46p27.mp3",
+    "imageUrl": "",
+    "prompt": "Question 11 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "La communication avec ses clients.",
+      "La recherche d’un nouveau travail.",
+      "L’achat d’un nouveau téléphone fixe.",
+      "L’utilisation de son ordinateur portable."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 15,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928103-dye5fx.mp3",
+    "imageUrl": "",
+    "prompt": "Question 12 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "De cinéma.",
+      "De lecture.",
+      "De musique.",
+      "De théâtre."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 15,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928491-9yg9b2.mp3",
+    "imageUrl": "",
+    "prompt": "Question 13 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Pour annuler un achat.",
+      "Pour modifier une commande.",
+      "Pour réclamer un paquet.",
+      "Pour retourner un colis."
+    ],
+    "correctAnswerIndex": 1
+  },
+  {
+    "points": 15,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930200-e6poar.mp3",
+    "imageUrl": "",
+    "prompt": "Question 14 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "L’annulation d’un cours.",
+      "Le retard d’un professeur.",
+      "Les horaires d’un examen.",
+      "Un changement de salle."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 15,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930136-yyo1sd.mp3",
+    "imageUrl": "",
+    "prompt": "Question 15 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Elle passe ses congés dans la région.",
+      "Elle réside là depuis son enfance.",
+      "Elle travaille dans le tourisme local.",
+      "Elle vient participer à un concours."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 15,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930103-gwnsfz.mp3",
+    "imageUrl": "",
+    "prompt": "Question 16 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "La répartition des horaires.",
+      "Le contact avec les élèves.",
+      "Les activités pédagogiques.",
+      "L’organisation des leçons."
+    ],
+    "correctAnswerIndex": 1
+  },
+  {
+    "points": 15,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928629-a2is7b.mp3",
+    "imageUrl": "",
+    "prompt": "Question 17 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Confirmer la date d’un entretien d’embauche.",
+      "Se renseigner sur les conditions de travail.",
+      "S’informer sur une formation professionnelle.",
+      "Vérifier si un courrier est bien arrivé."
+    ],
+    "correctAnswerIndex": 3
+  },
+  {
+    "points": 15,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563929068-joxj8h.mp3",
+    "imageUrl": "",
+    "prompt": "Question 18 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Le prix élevé des produits.",
+      "Les délais pour être livrée.",
+      "Les difficultés en cas d’échange.",
+      "Les tailles de vêtements différentes."
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 15,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563929710-fu07u8.mp3",
+    "imageUrl": "",
+    "prompt": "Question 19 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Les conditions de recrutement sont plus difficiles aujourd’hui.",
+      "Les étudiants ignorent le fonctionnement de l’entreprise.",
+      "Les jeunes étaient préparés plus sérieusement dans le passé.",
+      "Les patrons actuels ont un degré d’exigence trop élevé."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563929052-b0c7vq.mp3",
+    "imageUrl": "",
+    "prompt": "Question 20 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "D’acheter un roman.",
+      "D’attendre son collègue.",
+      "De réserver un livre.",
+      "De revenir le lendemain."
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563929731-rl91jd.mp3",
+    "imageUrl": "",
+    "prompt": "Question 21 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Il fait plus beau qu’hier.",
+      "Il fait plus mauvais qu’hier.",
+      "Il pleut plus qu’hier.",
+      "Il y a moins de soleil qu’hier."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930005-xugljq.mp3",
+    "imageUrl": "",
+    "prompt": "Question 22 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "La diffusion d’une langue qui exprime les nuances des sentiments.",
+      "La multiplication des actions pour la défense des droits de l’homme.",
+      "La promotion d’un moyen d’échanges entre les différentes nationalités.",
+      "La reconnaissance d’un patrimoine culturel unique par sa richesse."
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928907-3l2adn.mp3",
+    "imageUrl": "",
+    "prompt": "Question 23 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Elles entrent dans la vie active avant les jeunes garçons.",
+      "Elles se rebellent très vite face à l’autorité familiale au quotidien.",
+      "Elles sont en désaccord avec leurs parents au sujet de leurs études.",
+      "Elles sont mieux préparées aux tâches de tous les jours."
+    ],
+    "correctAnswerIndex": 1
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928661-bbz41v.mp3",
+    "imageUrl": "",
+    "prompt": "Question 24 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Découvrir une région de France.",
+      "Partir vivre sur la Côte d’Azur.",
+      "Rejoindre son épouse dans le Sud.",
+      "Rendre visite à un ami français."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563929750-obpob0.mp3",
+    "imageUrl": "",
+    "prompt": "Question 25 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Pour conserver le poisson.",
+      "Pour ranger leur matériel.",
+      "Pour se réchauffer.",
+      "Pour se reposer."
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930355-xsjl50.mp3",
+    "imageUrl": "",
+    "prompt": "Question 26 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Elle a arrêté d’exercer sa profession.",
+      "Elle a décidé d’enrichir son curriculum vitae.",
+      "Elle a obtenu un congé de longue durée.",
+      "Elle a réduit son nombre d’heures de travail."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928443-h97119.mp3",
+    "imageUrl": "",
+    "prompt": "Question 27 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Le jeu de l’acteur.",
+      "Les dialogues.",
+      "La musique.",
+      "Le scénario."
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928388-6y63sg.mp3",
+    "imageUrl": "",
+    "prompt": "Question 28 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Elle a gardé des enfants dans une famille britannique.",
+      "Elle a passé son enfance dans un pays étranger.",
+      "Elle a suivi des études dans un lycée bilingue.",
+      "Elle a travaillé avec une institutrice américaine."
+    ],
+    "correctAnswerIndex": 3
+  },
+  {
+    "points": 21,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563929216-omq25j.mp3",
+    "imageUrl": "",
+    "prompt": "Question 29 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "D’un appel à projets imaginaires.",
+      "D’un examen de fin d’études.",
+      "D’un nouveau plan d’urbanisme.",
+      "D’une rénovation d’un monument."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 26,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930156-upu6vx.mp3",
+    "imageUrl": "",
+    "prompt": "Question 30 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "L’attitude des touristes accélère sa dégradation.",
+      "Le financement des travaux d’entretien est menacé.",
+      "Les autorités restaurent actuellement les vestiges.",
+      "L’intérêt pour l’architecture des lieux est en déclin."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 26,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930019-nlogn1.mp3",
+    "imageUrl": "",
+    "prompt": "Question 31 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "C’est un temps de découverte et l’humanité.",
+      "C’est une occasion de dépenser son énergie.",
+      "C’est une opportunité d’apprécier la solitude.",
+      "C’est une possibilité quotidienne d’évasion."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 26,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928881-2xt6pw.mp3",
+    "imageUrl": "",
+    "prompt": "Question 32 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "C’est la reproduction d’un café du siècle dernier.",
+      "Il contient un dépôt-vente de meubles design.",
+      "C’est à la fois un restaurant et une galerie d’art.",
+      "Il y organise un festival de musique électronique."
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 26,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563928802-j3lzyt.mp3",
+    "imageUrl": "",
+    "prompt": "Question 33 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "À comparer les étapes du clonage naturel et artificiel.",
+      "À observer l’effet des activités humaines sur la nature.",
+      "À orienter la recherche en prenant la nature comme modèle.",
+      "À sensibiliser les hommes à respecter leur milieu naturel."
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 26,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930114-jr5uqo.mp3",
+    "imageUrl": "",
+    "prompt": "Question 34 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Ils consomment plus que la jeune génération.",
+      "Ils dépensent beaucoup pour leur santé.",
+      "Ils profitent peu des effets de la croissance.",
+      "Ils sont à l’origine de créations d’emplois."
+    ],
+    "correctAnswerIndex": 3
+  },
+  {
+    "points": 26,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930127-oo6cj6.mp3",
+    "imageUrl": "",
+    "prompt": "Question 35 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Ils dégagent une odeur agréable.",
+      "Ils ont des résultats spectaculaires.",
+      "Ils ont l’avantage d’être peu chers.",
+      "Ils répondent à ses convictions."
+    ],
+    "correctAnswerIndex": 3
+  },
+  {
+    "points": 33,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930048-y4zfv7.mp3",
+    "imageUrl": "",
+    "prompt": "Question 36 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "C’est aux parents de choisir pour leurs enfants.",
+      "Il faut l’étendre à toutes les générations.",
+      "Le dispositif fonctionne bien tel qu’il est.",
+      "L’État doit l’imposer à la population."
+    ],
+    "correctAnswerIndex": 2
+  },
+  {
+    "points": 33,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930087-84rqj0.mp3",
+    "imageUrl": "",
+    "prompt": "Question 37 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "La relation liant Camille Claudel et Rodin.",
+      "La richesse du musée Auguste Rodin.",
+      "Les difficultés rencontrées par Rodin.",
+      "Les sources d’inspiration de Rodin."
+    ],
+    "correctAnswerIndex": 0
+  },
+  {
+    "points": 33,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563930038-ui5jsc.mp3",
+    "imageUrl": "",
+    "prompt": "Question 38 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Elles demandent un nouveau statut juridique.",
+      "Elles exigent des garanties réelles et tangibles.",
+      "Elles mettent en doute la viabilité du projet.",
+      "Elles veulent que les terres restent intactes."
+    ],
+    "correctAnswerIndex": 1
+  },
+  {
+    "points": 33,
+    "audioUrl": "https://qrcmv2rhibwpawwn.public.blob.vercel-storage.com/audio/1766563929978-zqz66p.mp3",
+    "imageUrl": "",
+    "prompt": "Question 39 : Écoutez le document sonore et la question. Choisissez la bonne réponse",
+    "options": [
+      "Elle est régie par des normes internationales strictes.",
+      "Elle est réputée sans danger pour le milieu naturel.",
+      "Les inconvénients qu’elle présente sont manifestes.",
+      "Les sociétés de production en exagèrent la rentabilité."
+    ],
+    "correctAnswerIndex": 3
+  }
+]

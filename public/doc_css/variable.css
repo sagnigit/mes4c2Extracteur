@@ -1,0 +1,65 @@
+:root {
+  /* 🎨 Couleurs principales */
+  --color-transparent: rgba(0, 0, 0, 0);
+  --color-primary: #2E86C1;      /* Bleu principal */
+  --color-secondary: #28B463;    /* Vert secondaire */
+  --color-accent: #F1C40F;       /* Jaune accent */
+  --color-danger: #E74C3C;       /* Rouge pour alertes */
+  --color-background: #e4e9e9;   /* Fond clair */
+  --color-cadre: #fafaf8;
+  --color-surface: #FFFFFF;      /* Surface des cartes/fenêtres */
+  --color-fond-bleu-leger: rgba(9, 73, 247, 0.04);
+  --color-text: #2C3E50;         /* Texte principal */
+  --color-text-light: #7F8C8D;   /* Texte secondaire */
+  --color-text-blanc: #FFFFFF;
+  --color-text-foncer: #333;
+
+  /* 🏷️ Identité des types d'épreuve (onglet Extraction) — palette
+     catégorielle dédiée, volontairement distincte des couleurs
+     sémantiques ci-dessus (le rouge --color-danger reste réservé aux
+     erreurs/suppressions, jamais à une étiquette de contenu). */
+  --type-ce: #2E86C1;                       /* Compréhension Écrite — bleu (aligné sur --color-primary) */
+  --type-ce-tinte: rgba(46, 134, 193, 0.12);
+  --type-ce-hover: #256ea1;
+
+  --type-co: #0891B2;                       /* Compréhension Orale — cyan */
+  --type-co-tinte: rgba(8, 145, 178, 0.12);
+  --type-co-hover: #07708a;
+
+  --type-ee: #B45309;                       /* Expression Écrite — ambre */
+  --type-ee-tinte: rgba(180, 83, 9, 0.12);
+  --type-ee-hover: #92400e;
+
+  --type-eo: #7C3AED;                       /* Expression Orale — violet */
+  --type-eo-tinte: rgba(124, 58, 237, 0.12);
+  --type-eo-hover: #6428c7;
+
+  /* 🖋️ Polices */
+  --font-family-base: 'Roboto', Arial, sans-serif;
+  --font-family-title: 'Montserrat', Helvetica, sans-serif;
+
+  /* 🔠 Tailles de texte */
+  --font-size-small: 0.85rem;
+  --font-size-base: 1rem;
+  --font-size-medium: 1.2rem;
+  --font-size-large: 1.5rem;
+  --font-size-title: 2rem;
+
+  /* ⚙️ Espacements */
+  --spacing-small: 0.5rem;
+  --spacing-medium: 1rem;
+  --spacing-large: 2rem;
+
+  /* 🖼️ Ombres et bordures */
+  --border-radius: 8px;
+  --bordure-simple: solid #c7c7c7 1px;
+  --box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+
+  /* 🎨 Palette de z-index */
+  --z-index-base: 1;         /* éléments normaux */
+  --z-index-dropdown: 1000;  /* menus déroulants */
+  --z-index-modal: 2000;     /* fenêtres modales */
+  --z-index-toast: 3000;     /* notifications */
+  --z-index-overlay: 4000;   /* overlay global */
+  --z-index-critical: 9999;  /* toujours au-dessus */
+}

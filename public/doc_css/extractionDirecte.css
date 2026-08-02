@@ -1,0 +1,150 @@
+/* ------------------------------------------------------------------ */
+/* Zone d'extraction directe - overlay plein écran                     */
+/* Même fond légèrement sombre dans tous les cas. En exécution normale, */
+/* le message est au CENTRE de l'écran ; en erreur, il reste en haut,   */
+/* avec les actions Relancer/Arrêter. Tout se fait en fondu (ouverture  */
+/* ET fermeture) plutôt qu'en display:none/flex abrupt.                 */
+/* ------------------------------------------------------------------ */
+
+.extraction-directe-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1500;
+
+    display: flex;
+    opacity: 0;
+    pointer-events: none;
+
+    background-color: rgba(0, 0, 0, 0);
+    transition: opacity 0.35s ease, background-color 0.35s ease;
+
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.extraction-directe-overlay--visible {
+    opacity: 1;
+    /* Même fond, légèrement sombre, que ce soit en erreur ou pendant
+       une opération normale (chargement/injection). */
+    background-color: rgba(15, 15, 17, 0.45);
+    pointer-events: auto;
+}
+
+/* --- Carte "exécution normale" : centrée au milieu de l'écran --- */
+.extraction-directe-carte-execution {
+    display: flex;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.97);
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    max-width: min(480px, calc(100% - 48px));
+    padding: 28px 32px;
+    box-sizing: border-box;
+    border-radius: 12px;
+
+    background: rgba(30, 30, 34, 0.9);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.extraction-directe-carte-execution--visible {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.extraction-directe-message-execution {
+    color: #7dd3fc; /* bleu clair, bon contraste sur fond sombre */
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.extraction-directe-ligne-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+}
+
+.extraction-directe-loader {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    object-fit: contain;
+}
+
+/* --- Carte "erreur" : en haut de l'écran --- */
+.extraction-directe-carte-erreur {
+    display: flex;
+    position: absolute;
+    top: 65px; /* HAUTEUR_BARRE_TITRE (57) + BANDEAU_MARGE_HAUT (8) */
+    left: 50%;
+    transform: translateX(-50%) translateY(-6px);
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+
+    align-items: center;
+    gap: 16px;
+    max-width: min(720px, calc(100% - 48px));
+    padding: 12px 16px;
+    box-sizing: border-box;
+    border-radius: 8px;
+
+    background: #2b2b2b;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.extraction-directe-carte-erreur--visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.extraction-directe-message-erreur {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.extraction-btn {
+    flex: none;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.extraction-directe-btn-suspendre {
+    background: #52525b;
+    color: #fff;
+}
+
+.extraction-directe-btn-suspendre:hover {
+    background: #3f3f46;
+}
+
+.extraction-directe-btn-relancer {
+    background: #3b82f6;
+    color: #fff;
+}
+
+.extraction-directe-btn-relancer:hover {
+    background: #2563eb;
+}
+
+.extraction-directe-btn-arreter {
+    background: #ef4444;
+    color: #fff;
+}
+
+.extraction-directe-btn-arreter:hover {
+    background: #dc2626;
+}

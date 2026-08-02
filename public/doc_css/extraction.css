@@ -1,0 +1,578 @@
+/* ==========================================================
+   Zone d'extraction — grille de cartes CE / CO / EE / EO
+   ========================================================== */
+
+.extraction-zone-types {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.extraction-chargement {
+  grid-column: 1 / -1;
+  color: #888;
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.extraction-type-cadre {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 190px;
+  padding: 16px 12px 14px;
+  border-radius: 14px;
+  overflow: hidden;
+  background-color: var(--color-surface);
+  border: 1px solid #e7e8ec;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+/* Fine barre d'accent en haut de carte : seul repère de couleur "plein"
+   du type, le reste de la carte reste sobre (texte neutre, badge en
+   chip tinté) — évite l'effet "pastille criarde" des blocs pleins. */
+.extraction-type-cadre::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #d8d8de;
+}
+
+.extraction-type-cadre:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.10);
+  border-color: #dcdde2;
+}
+
+/* --- Étiquette du type (chip tinté, une couleur par type) --- */
+.extraction-type-entete {
+  display: flex;
+}
+
+.extraction-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.extraction-type-cadre--ce::before { background-color: var(--type-ce); }
+.extraction-type-cadre--ce .extraction-type-badge { background-color: var(--type-ce-tinte); color: var(--type-ce); }
+.extraction-type-cadre--ce .extraction-btn-ouvrir { background-color: var(--type-ce); }
+.extraction-type-cadre--ce .extraction-btn-ouvrir:hover:not(:disabled) { background-color: var(--type-ce-hover); }
+
+.extraction-type-cadre--co::before { background-color: var(--type-co); }
+.extraction-type-cadre--co .extraction-type-badge { background-color: var(--type-co-tinte); color: var(--type-co); }
+.extraction-type-cadre--co .extraction-btn-ouvrir { background-color: var(--type-co); }
+.extraction-type-cadre--co .extraction-btn-ouvrir:hover:not(:disabled) { background-color: var(--type-co-hover); }
+
+.extraction-type-cadre--ee::before { background-color: var(--type-ee); }
+.extraction-type-cadre--ee .extraction-type-badge { background-color: var(--type-ee-tinte); color: var(--type-ee); }
+.extraction-type-cadre--ee .extraction-btn-ouvrir { background-color: var(--type-ee); }
+.extraction-type-cadre--ee .extraction-btn-ouvrir:hover:not(:disabled) { background-color: var(--type-ee-hover); }
+
+.extraction-type-cadre--eo::before { background-color: var(--type-eo); }
+.extraction-type-cadre--eo .extraction-type-badge { background-color: var(--type-eo-tinte); color: var(--type-eo); }
+.extraction-type-cadre--eo .extraction-btn-ouvrir { background-color: var(--type-eo); }
+.extraction-type-cadre--eo .extraction-btn-ouvrir:hover:not(:disabled) { background-color: var(--type-eo-hover); }
+
+/* --- Statistiques : une section "Extrait" (🔒) + une section
+   "Transformé" (✎), chacune avec sa ligne de mini-compteurs. Volontairement
+   neutres (gris) : la couleur du type est déjà portée par la barre du
+   haut et le badge, pas besoin de la répéter ici. --- */
+.extraction-type-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 9px;
+  margin: 8px 0;
+}
+
+.extraction-type-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.extraction-type-section-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-light);
+}
+
+.extraction-type-section-label--extrait::before {
+  content: '🔒';
+  font-size: 9px;
+}
+
+.extraction-type-section-label--trans::before {
+  content: '✎';
+  font-size: 9px;
+}
+
+.extraction-type-section-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.extraction-type-section-stats--vide {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--color-text-light);
+}
+
+.extraction-type-stat-bloc-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 32px;
+}
+
+.extraction-type-stat-valeur-mini {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-text);
+  font-family: var(--font-family-title);
+  line-height: 1.1;
+}
+
+.extraction-type-stat-label-mini {
+  font-size: 8px;
+  color: var(--color-text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.extraction-type-separateur {
+  width: 100%;
+  height: 0;
+  border-top: 1px dashed #e4e4e9;
+}
+
+/* --- Bouton du bas (Ouvrir uniquement), coloré selon le type --- */
+.extraction-type-boutons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.extraction-btn {
+  flex: 1;
+  padding: 10px 4px;
+  border: none;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease, opacity 0.15s ease;
+  color: var(--color-text-blanc);
+}
+
+.extraction-btn:active {
+  transform: scale(0.96);
+}
+
+.extraction-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.extraction-btn-ouvrir {
+  background-color: var(--color-primary);
+}
+
+.extraction-btn-ouvrir:hover:not(:disabled) {
+  background-color: #256ea1;
+}
+
+/* --- État "absent" (le type n'existe pas pour cette série) --- */
+.extraction-type-cadre--absent {
+  box-shadow: none;
+  border-style: dashed;
+  background-color: #fafafb;
+}
+
+.extraction-type-cadre--absent::before {
+  background-color: #d8d8de;
+}
+
+.extraction-type-cadre--absent:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: #e7e8ec;
+}
+
+.extraction-type-cadre--absent .extraction-type-badge {
+  background-color: #eceef1;
+  color: #9a9ba3;
+}
+
+.extraction-type-indisponible {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-text-light);
+  font-style: italic;
+  padding: 8px 4px;
+}
+
+/* ==========================================================
+   Zone d'affichage — navigation (gauche) + contenu (droite)
+   ========================================================== */
+
+.body_affichage {
+  padding: 0 !important;
+  align-items: stretch !important;
+}
+
+/* --- Zone d'affichage embarquée directement dans une page CE/CO/EE/EO --- */
+/* (remplace l'ancien Panel dédié : entête légère + layout nav/contenu) */
+.affichage-embed {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.affichage-embed-entete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  background-color: #f0f0f3;
+  border-bottom: 1px solid #e4e4e9;
+}
+
+.affichage-embed-entete-titre {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Bouton d'export, posé dans l'entête de chaque zone d'affichage --- */
+.affichage-embed-export-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background-color: var(--color-primary);
+  color: var(--color-text-blanc);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.affichage-embed-export-btn:hover {
+  background-color: #256ea1;
+}
+
+.affichage-embed-export-btn:active {
+  transform: scale(0.92);
+}
+
+.affichage-layout {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+/* --- Colonne de navigation (largeur fixe) --- */
+.affichage-nav {
+  display: flex;
+  flex-direction: column;
+  width: 150px;
+  flex: 0 0 150px;
+  height: 100%;
+  background-color: #f7f7f9;
+  border-right: 1px solid #e4e4e9;
+  box-sizing: border-box;
+}
+
+.affichage-nav-liste {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px;
+  padding: 14px;
+}
+
+.affichage-nav-btn {
+  width: 42px;
+  height: 42px;
+  border: 1px solid #dcdce2;
+  border-radius: 10px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+}
+
+.affichage-nav-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.affichage-nav-btn:active {
+  transform: scale(0.94);
+}
+
+.affichage-nav-btn--active {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-blanc);
+}
+
+.affichage-nav-navigation {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid #e4e4e9;
+  background-color: #f0f0f3;
+}
+
+.affichage-nav-indicateur {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-light);
+}
+
+.affichage-nav-fleche {
+  width: 100%;
+  padding: 8px 4px;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--color-primary);
+  color: var(--color-text-blanc);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease, transform 0.05s ease;
+}
+
+.affichage-nav-fleche:hover:not(:disabled) {
+  background-color: #256ea1;
+}
+
+.affichage-nav-fleche:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.affichage-nav-fleche:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* --- Zone de contenu (droite, scrollable) --- */
+.affichage-contenu {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 20px 24px;
+}
+
+.affichage-vide {
+  color: #888;
+  font-style: italic;
+  padding: 20px;
+  text-align: center;
+}
+
+.affichage-contenu-entete {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ececf0;
+}
+
+.affichage-contenu-titre {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+  font-family: var(--font-family-title);
+}
+
+.affichage-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.affichage-badge {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 0.5px solid #c5c5c5;
+  background-color: #daf6ff;
+}
+
+.affichage-badge-label {
+  color: var(--color-text-light);
+}
+
+.affichage-badge-valeur {
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+/* --- Détail d'un élément (question / sujet) --- */
+.affichage-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.affichage-consigne {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.affichage-consigne p {
+  margin: 0 0 8px 0;
+}
+
+.affichage-image {
+  max-width: 100%;
+  max-height: 360px;
+  width: auto;
+  border-radius: 8px;
+  border: 1px solid #e0e0e5;
+  object-fit: contain;
+  align-self: flex-start;
+}
+
+.affichage-audio {
+  width: 100%;
+}
+
+.affichage-reponses {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: var(--color-fond-bleu-leger);
+}
+
+.affichage-reponse-correcte {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #1b7a3d;
+}
+
+.affichage-reponse-correcte .iconMateriel {
+  color: #1b7a3d;
+}
+
+.affichage-distracteurs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.affichage-distracteur {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-light);
+  font-size: 13px;
+}
+
+.affichage-distracteur .iconMateriel {
+  color: var(--color-danger);
+}
+
+.affichage-champs-restants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.affichage-champ {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 0.5px solid #c5c5c5;
+  background-color: #f5f3f3;
+}
+
+.affichage-champ-label {
+  color: var(--color-text-light);
+}
+
+.affichage-champ-valeur {
+  font-weight: bold;
+  color: var(--color-text);
+}
+/* ------------------------------------------------------------------ */
+/* Message affiché maintenant que les cartes de série ont été          */
+/* déplacées vers l'accueil (partie TEF) — voir zoneAccueilTef.ts.     */
+/* ------------------------------------------------------------------ */
+.extraction-deplacee-message {
+    padding: 24px;
+    color: #6b7280;
+    font-size: 14px;
+    text-align: center;
+}

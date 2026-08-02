@@ -1,0 +1,9 @@
+@font-face {
+  font-family: 'po1';
+  src: url("../doc_police/d001.ttf") format('truetype');
+}
+
+@font-face {
+  font-family: 'po2';
+  src: url("../doc_police/d002.ttf") format('truetype');
+}

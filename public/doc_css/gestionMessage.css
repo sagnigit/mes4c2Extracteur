@@ -1,0 +1,204 @@
+/* =========================================================
+   ZONES COMMUNES
+   - toujours au-dessus de tout : z-index tres eleve
+   - #zoneMessageTemporaire : coin haut-droit, empile haut -> bas
+   - #zoneMessagePermanente : coin bas-droit, empile bas -> haut
+   ========================================================= */
+.zoneMessages {
+    position: fixed;
+    right: 0;
+    width: fit-content;
+    height: fit-content;
+    max-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background-color: rgba(0, 0, 0, 0);
+    pointer-events: none;
+}
+
+.zoneMessages > * {
+    pointer-events: auto;
+}
+
+#zoneMessageTemporaire {
+    top: 40px;
+    padding: 20px 20px 0 20px;
+}
+
+/* flex-direction: column + ancrage en bas => le dernier element ajoute
+   touche le bas de l'ecran, et les precedents sont pousses vers le haut. */
+#zoneMessagePermanente {
+    bottom: 20px;
+    padding: 0 20px 20px 20px;
+}
+
+
+/* =========================================================
+   STRUCTURE COMMUNE (entete / icone / corps / bouton fermer)
+   partagee par les deux designs, temp et perm
+   ========================================================= */
+.entete-message-temp,
+.entete-message-perm {
+    display: flex;
+    height: fit-content;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px;
+}
+
+.gauche-entete-temp,
+.gauche-entete-perm {
+    display: flex;
+    align-items: center;
+    font-size: 17px;
+    font-weight: bold;
+}
+
+.icon-temp,
+.icon-perm {
+    margin-right: 10px;
+    font-size: 22px;
+}
+
+.bout-sup-temp,
+.bout-sup-perm {
+    display: flex;
+    width: 30px;
+    height: 30px;
+    font-size: 18px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.corps-temp,
+.corps-perm {
+    display: flex;
+    width: 100%;
+    height: fit-content;
+    padding: 10px;
+    font-size: 14px;
+}
+
+
+/* =========================================================
+   DESIGN "TEMPORAIRE" (toast)
+   fond teinte + bordure superieure coloree
+   ========================================================= */
+.porteurMessage-temp {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    width: 400px;
+    height: fit-content;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 7px;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    box-shadow: 0px 0px 0px 1px rgba(70, 68, 68, 0.5);
+}
+
+.enter-temp {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.leave-temp {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.bout-sup-temp {
+    background-color: rgba(41, 92, 235, 0);
+}
+
+.bout-sup-temp:hover {
+    background-color: rgb(255, 255, 255);
+}
+
+.info-temp {
+    border-top: 5px solid rgb(2, 61, 129);
+    background-color: rgba(185, 221, 238, 0.9);
+    color: rgb(0, 38, 56);
+}
+
+.reussite-temp {
+    border-top: 5px solid rgb(2, 129, 51);
+    background-color: rgba(185, 238, 205, 0.9);
+    color: rgb(0, 61, 36);
+}
+
+.erreur-temp {
+    border-top: 5px solid rgb(129, 2, 2);
+    background-color: rgba(238, 185, 185, 0.9);
+    color: rgb(63, 0, 0);
+}
+
+
+/* =========================================================
+   DESIGN "PERMANENT" (notification persistante)
+   carte blanche + bordure laterale coloree + icone coloree
+   -> volontairement different du toast pour bien distinguer
+      "ca va disparaitre seul" de "ca reste tant que tu ne
+      fermes pas"
+   ========================================================= */
+.porteurMessage-perm {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    width: 380px;
+    height: fit-content;
+    background-color: rgb(255, 255, 255);
+    border-radius: 10px;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.enter-perm {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.leave-perm {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.bout-sup-perm {
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.bout-sup-perm:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+.info-perm {
+    border-left: 5px solid rgb(2, 61, 129);
+    color: rgb(0, 38, 56);
+}
+.info-perm .icon-perm {
+    color: rgb(2, 61, 129);
+}
+
+.reussite-perm {
+    border-left: 5px solid rgb(2, 129, 51);
+    color: rgb(0, 61, 36);
+}
+.reussite-perm .icon-perm {
+    color: rgb(2, 129, 51);
+}
+
+.erreur-perm {
+    border-left: 5px solid rgb(129, 2, 2);
+    color: rgb(63, 0, 0);
+}
+.erreur-perm .icon-perm {
+    color: rgb(129, 2, 2);
+}

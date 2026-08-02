@@ -1,0 +1,60 @@
+{
+  "name": "mes4C2-extracteur",
+  "version": "1.0.0",
+  "description": "bien",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "postinstall": "node -e \"require('fs').mkdirSync('public/vendor',{recursive:true});require('fs').copyFileSync('node_modules/html-to-image/dist/html-to-image.js','public/vendor/html-to-image.js')\"",
+    "build": "tsc",
+    "start": "electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder --publish=always"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/node-fetch": "^2.6.13",
+    "electron": "^36.4.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "abort-controller": "^3.0.0",
+    "dotenv": "^17.4.2",
+    "electron-updater": "^6.8.9",
+    "html-to-image": "^1.11.13",
+    "node-fetch": "^3.3.2",
+    "p-limit": "^7.3.0"
+  },
+  "author": "",
+  "license": "ISC",
+  "build": {
+    "appId": "com.tonorganisation.tcf-composer",
+    "productName": "TCF Composer",
+    "files": [
+      "dist/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "sagnigit",
+        "repo": "mes4c2Extracteur"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

@@ -1,0 +1,432 @@
+/* ==========================================================
+   Éditeur de zones (Extrait ↔ Transformé)
+   Utilisé dans la zone d'affichage pour CE / CO / EE / EO :
+   chaque "zone" (support, question, propositions, audio...)
+   est présentée avec un titre précis, un côté "Extrait" fixe
+   et un côté "Transformé" éditable, reliés par un bouton de
+   copie.
+   ========================================================== */
+
+.zed-conteneur {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.zed-zone {
+  border: 1px solid #e4e4e9;
+  border-radius: 14px;
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 8px rgba(20, 20, 30, 0.05);
+  overflow: hidden;
+}
+
+/* Espace entre deux zones qui se suivent directement (ex: Tâche 2 puis
+   Tâche 3 dans l'affichage TCF EO, voir zoneAccueilTcfEo.ts) quand elles
+   ne sont pas déjà dans un .zed-conteneur (qui gère l'espacement via
+   `gap`). Sans effet si un .zed-conteneur est déjà utilisé. */
+.zed-zone + .zed-zone {
+  margin-top: 20px;
+}
+
+.zed-zone-titre {
+  margin: 0;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-family-title);
+  color: var(--color-text-blanc);
+  background-color: var(--color-primary);
+  letter-spacing: 0.3px;
+}
+
+.zed-zone-corps {
+  display: grid;
+  grid-template-columns: 1fr 52px 1fr;
+  align-items: stretch;
+  gap: 0;
+}
+
+.zed-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.zed-col-extrait {
+  background-color: #fafafc;
+  border-right: 1px dashed #e4e4e9;
+}
+
+.zed-col-trans {
+  background-color: #fbfdff;
+}
+
+.zed-col-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-light);
+}
+
+.zed-col-extrait .zed-col-label::before {
+  content: '🔒';
+  font-size: 10px;
+}
+
+.zed-col-trans .zed-col-label::before {
+  content: '✎';
+  font-size: 10px;
+}
+
+/* --- Indicateur de statut d'enregistrement (à côté de "Transformé") --- */
+.zed-statut-save {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.zed-statut-save--enregistrement {
+  opacity: 1;
+  color: var(--color-text-light);
+}
+
+.zed-statut-save--ok {
+  opacity: 1;
+  color: #1b7a3d;
+}
+
+.zed-statut-save--erreur {
+  opacity: 1;
+  color: var(--color-danger);
+}
+
+/* --- Bouton central de copie extrait -> transformé --- */
+.zed-col-bouton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f2f4f7;
+}
+
+.zed-copier-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background-color: var(--color-secondary);
+  color: var(--color-text-blanc);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease, opacity 0.15s ease;
+}
+
+.zed-copier-btn:hover:not(:disabled) {
+  background-color: #219150;
+}
+
+.zed-copier-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.zed-copier-btn:disabled {
+  background-color: #c3c3c9;
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* --- Contenu extrait (fixe, lecture seule) --- */
+.zed-extrait-contenu.zed-vide {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--color-text-light);
+}
+
+.zed-image {
+  max-width: 100%;
+  max-height: 260px;
+  width: auto;
+  border-radius: 8px;
+  border: 1px solid #e0e0e5;
+  object-fit: contain;
+  cursor: pointer; /* ouvre la visionneuse (zoneVisionneuse.ts) au clic */
+}
+
+.zed-audio {
+  width: 100%;
+}
+
+.zed-texte {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text);
+  white-space: pre-wrap;
+}
+
+.zed-liste-extrait {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zed-liste-extrait-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-light);
+}
+
+.zed-liste-extrait-item .iconMateriel {
+  color: var(--color-danger);
+  font-size: 16px;
+}
+
+.zed-liste-extrait-item--correcte {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.zed-liste-extrait-item--correcte .iconMateriel {
+  color: #1b7a3d;
+}
+
+/* --- Contenu transformé (éditable) --- */
+.zed-textarea-trans {
+  width: 100%;
+  min-height: 90px;
+  resize: none;
+  overflow: hidden;
+  padding: 10px 12px;
+  border: 1px solid #d0d0d5;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: var(--font-family-base);
+  line-height: 1.5;
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+
+.zed-textarea-trans:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(46, 134, 193, 0.15);
+}
+
+/* --- Zone de dépôt (drag & drop) pour image / audio --- */
+.zed-dropzone {
+  position: relative;
+  border: 2px dashed #cfd3da;
+  border-radius: 10px;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.zed-dropzone--survol {
+  border-color: var(--color-primary);
+  background-color: var(--color-fond-bleu-leger);
+}
+
+.zed-dropzone--rempli {
+  border-style: solid;
+}
+
+.zed-dropzone-input-cache {
+  display: none;
+}
+
+.zed-dropzone-vide {
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-light);
+  cursor: pointer;
+  line-height: 1.6;
+}
+
+.zed-dropzone-lien {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.zed-dropzone-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.zed-dropzone-btn {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  background-color: var(--color-primary);
+  color: var(--color-text-blanc);
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.zed-dropzone-btn:hover {
+  background-color: #256ea1;
+}
+
+.zed-dropzone-btn:active {
+  transform: scale(0.95);
+}
+
+.zed-dropzone-btn--danger {
+  background-color: var(--color-danger);
+}
+
+.zed-dropzone-btn--danger:hover {
+  background-color: #c8382c;
+}
+
+/* --- Liste éditable de propositions de réponse --- */
+.zed-liste-trans {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zed-liste-trans-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zed-liste-trans-toggle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #dcdce2;
+  background-color: var(--color-surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.zed-liste-trans-toggle .iconMateriel {
+  color: var(--color-danger);
+  font-size: 16px;
+}
+
+.zed-liste-trans-toggle--actif {
+  border-color: #1b7a3d;
+  background-color: #eafaf0;
+}
+
+.zed-liste-trans-toggle--actif .iconMateriel {
+  color: #1b7a3d;
+}
+
+.zed-liste-trans-lettre {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background-color: var(--color-accent);
+  color: var(--color-text-foncer);
+  font-size: 12px;
+  font-weight: 800;
+  font-family: var(--font-family-title);
+}
+
+.zed-liste-trans-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid #d0d0d5;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.zed-liste-trans-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.zed-liste-trans-supprimer {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background-color: transparent;
+  color: var(--color-text-light);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.zed-liste-trans-supprimer:hover {
+  background-color: #fdecee;
+  color: var(--color-danger);
+}
+
+.zed-liste-trans-ajouter {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 6px 14px;
+  border: 1px dashed var(--color-primary);
+  border-radius: 14px;
+  background-color: transparent;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.zed-liste-trans-ajouter:hover {
+  background-color: var(--color-fond-bleu-leger);
+}
+
+/* --- Champs simples restants (rendu générique, discret) --- */
+.affichage-champs-restants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* --- Adaptation mobile / fenêtre étroite : empile extrait/transformé --- */
+@media (max-width: 720px) {
+  .zed-zone-corps {
+    grid-template-columns: 1fr;
+  }
+  .zed-col-extrait {
+    border-right: none;
+    border-bottom: 1px dashed #e4e4e9;
+  }
+  .zed-col-bouton {
+    padding: 8px;
+  }
+  .zed-copier-btn {
+    transform: rotate(90deg);
+  }
+}
