@@ -7,9 +7,9 @@
 // serveur ou délai dépassé), l'envoi s'arrête net : les questions
 // restantes de l'élément en cours d'export ne sont PAS envoyées.
 
-import type { Session } from 'electron';
+import type { Session, BrowserWindow } from 'electron';;
 import type { PaquetEnvoi } from './arrangeExport.js';
-import { envoyerRequete, type ResultatEnvoi } from './export_unique.js';
+import { envoyerRequete, type ResultatEnvoi } from './export_unique.js'
 
 /** Appelé avant chaque envoi puis avec le résultat de chaque envoi. */
 export type ProgressionCallback = (
@@ -30,28 +30,26 @@ export async function envoyerProgressif(
     session: Session,
     url: string,
     paquets: PaquetEnvoi[],
-    onProgression?: ProgressionCallback
+    fen: BrowserWindow
 ): Promise<ResultatProgressif> {
     let dernierResultat: ResultatEnvoi | null = null;
     let nbEnvoyes = 0;
 
     for (const paquet of paquets) {
-        const info = paquet.progression ?? { numero: nbEnvoyes + 1, total: paquets.length };
-
-        onProgression?.(info, 'en_cours');
 
         const resultat = await envoyerRequete(session, url, paquet);
         dernierResultat = resultat;
         nbEnvoyes += 1;
 
-        onProgression?.(info, resultat.success ? 'succes' : 'erreur', resultat.error);
-
-        if (!resultat.success) {
+        if (!resultat.correct) {
             // Une question a échoué (erreur serveur ou délai dépassé) :
             // on arrête net, sans envoyer les questions restantes.
             return { success: false, dernierResultat, nbEnvoyes };
         }
-    }
+        else{
+            fen.webContents.send("message-overlay", `Question ${nbEnvoyes} . ${resultat.message}`);
+        }
+    } 
 
     return { success: true, dernierResultat, nbEnvoyes };
 }

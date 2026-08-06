@@ -32,6 +32,12 @@ export interface ActualisableItem {
     text: string;
     /** Exécutée quand on clique sur cet élément. */
     onClick: () => void;
+    /**
+     * Vrai si cet élément possède déjà un dossier de donnée associé
+     * (ex. un lien déjà extrait au moins une fois) : ajoute une marque
+     * visuelle distinctive sur l'item (voir createItemElement).
+     */
+    dejaTraite?: boolean;
   }
   
   export interface ActualisableListOptions {
@@ -158,6 +164,47 @@ export interface ActualisableItem {
     public getAllItems(): ActualisableItem[] {
       return [...this.items];
     }
+
+    /**
+     * Marque UN élément précis (par id) comme "déjà traité", sans
+     * reconstruire toute la liste : ajoute directement la marque
+     * visuelle sur son élément DOM. Utilisé juste après qu'un clic sur
+     * cet élément a réussi (voir ecouteDonneeTraitee dans
+     * zoneExtract.ts) — évite d'avoir à fermer/rouvrir l'appli pour
+     * voir le signe distinctif apparaître.
+     */
+    public marquerTraite(id: string): void {
+      const item = this.items.find((it) => it.id === id);
+      if (item) item.dejaTraite = true;
+
+      const el = this.itemsContainerEl.querySelector<HTMLDivElement>(
+        `.al-item[data-id="${CSS.escape(id)}"]`
+      );
+      if (el && !el.classList.contains("al-item--deja-traite")) {
+        el.classList.add("al-item--deja-traite");
+        el.title = "Déjà extrait — un dossier existe déjà pour ce lien";
+      }
+    }
+
+    /**
+     * Inverse de marquerTraite : retire la marque "déjà traité" d'UN
+     * élément précis (par id), sans reconstruire toute la liste. Utilisé
+     * quand la carte de série correspondante vient d'être supprimée et
+     * qu'il ne reste donc plus aucun dossier lié à ce lien (voir
+     * ecouteEtatItemLien dans zoneExtract.ts).
+     */
+    public demarquerTraite(id: string): void {
+      const item = this.items.find((it) => it.id === id);
+      if (item) item.dejaTraite = false;
+
+      const el = this.itemsContainerEl.querySelector<HTMLDivElement>(
+        `.al-item[data-id="${CSS.escape(id)}"]`
+      );
+      if (el && el.classList.contains("al-item--deja-traite")) {
+        el.classList.remove("al-item--deja-traite");
+        el.removeAttribute("title");
+      }
+    }
   
     // ---------------------------------------------------------------------
     // Rendu interne
@@ -178,6 +225,10 @@ export interface ActualisableItem {
     private createItemElement(item: ActualisableItem): HTMLDivElement {
       const el = document.createElement("div");
       el.className = "al-item";
+      if (item.dejaTraite) {
+        el.classList.add("al-item--deja-traite");
+        el.title = "Déjà extrait — un dossier existe déjà pour ce lien";
+      }
       el.dataset.id = item.id;
       el.tabIndex = 0;
       el.setAttribute("role", "button");

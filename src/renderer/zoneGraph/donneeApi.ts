@@ -164,3 +164,14 @@ export const sauvegarderTransformConserveur = (
     return window.api.invoke('conserveur:save-transform', { examen, type, id, donnees });
 };
 
+// Supprime définitivement une série (dossier + référence) — voir
+// creerBoutonSupprimerCarte dans carteSuppression.ts, utilisé par
+// zoneAccueilTef.ts.
+export const supprimerSerieConserveur = (
+    examen: TypeExamen,
+    type: TypeEpreuve,
+    id: string
+): Promise<{ success: boolean; error?: string }> => {
+    return window.api.invoke('conserveur:delete-series', { examen, type, id });
+};
+

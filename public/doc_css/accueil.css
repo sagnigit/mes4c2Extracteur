@@ -60,17 +60,68 @@
     height: 100%;
 }
 
-/* --- Colonne de gauche : les cartes --- */
+/* --- Colonne de gauche : cartes (scroll) + pied de colonne (fixe) --- */
 .cnav-colonne {
     display: flex;
     flex-direction: column;
-    gap: 14px;
     width: 200px;
     flex-shrink: 0;
     padding: 16px;
-    overflow-y: auto;
+    min-height: 0;
     background: #fafbfc;
     border-right: 1px solid #e5e7eb;
+}
+
+/* --- Sous-zone scrollable : les cartes TCF/TEF --- */
+.cnav-colonne-cartes {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* --- Pied de colonne : boutons Extraction / Création / Paramètres --- */
+.cnav-colonne-pied {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.cnav-pied-bouton {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #374151;
+    font: inherit;
+    font-size: var(--font-size-medium, 14px);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.cnav-pied-bouton:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #111827;
+}
+
+.cnav-pied-bouton .iconMateriel {
+    font-size: 19px;
+    color: #6b7280;
+}
+
+.cnav-pied-bouton:hover .iconMateriel {
+    color: #111827;
 }
 
 /* --- Zone de droite : contenu de la carte active --- */
@@ -89,7 +140,7 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 14px;
+    gap: 0;
     width: 100%;
     padding: 16px;
     border: 1px solid #e5e7eb;
@@ -100,7 +151,11 @@
     font: inherit;
     outline: none;
     box-sizing: border-box;
-    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, gap 0.22s ease;
+}
+
+.cnav-carte.cnav-carte-actif {
+    gap: 14px;
 }
 
 .cnav-carte:hover {
@@ -158,6 +213,21 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    /* Repliée par défaut ("enroulée") : seules l'entête (badge + titre)
+       restent visibles tant que cette carte n'est pas celle dont la
+       zone est ouverte. Voir NavigationManager.openPage, qui bascule
+       la classe cnav-carte-actif sur la carte de la page ouverte —
+       aucune autre logique JS n'est nécessaire ici, tout se joue en CSS. */
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.28s ease, opacity 0.2s ease;
+}
+
+.cnav-carte.cnav-carte-actif .cnav-carte-stats {
+    /* "Déroulée" : la carte dont la zone est ouverte affiche ses infos. */
+    max-height: 220px;
+    opacity: 1;
 }
 
 .cnav-carte-stat {
@@ -306,9 +376,11 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+    transition: width 0.22s ease;
 }
 
-.nm-page-cartes .stack-container {
+.nm-page-cartes .stack-container,
+.nm-page-cartes .stack-container-etendu {
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -317,17 +389,113 @@
     overflow-y: auto;
 }
 
+/* --- Entête de la zone de cartes : recherche + bouton de repliage --- */
+.nm-page-cartes-entete {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-bottom: 10px;
+}
+
+.nm-page-cartes-recherche {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    padding: 6px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.nm-page-cartes-recherche:focus-within {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.nm-page-cartes-recherche-icone {
+    font-size: 16px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.nm-page-cartes-recherche-champ {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font: inherit;
+    font-size: 12.5px;
+    color: #111827;
+}
+
+.nm-page-cartes-recherche-champ::placeholder {
+    color: #9ca3af;
+}
+
+.nm-page-cartes-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #6b7280;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.nm-page-cartes-toggle:hover {
+    background: #f3f4f6;
+    color: #111827;
+    border-color: #d1d5db;
+}
+
+/* --- État replié : ne garde que le bouton de bascule (largeur réduite) --- */
+.nm-page-cartes--repliee {
+    width: 46px;
+}
+
+.nm-page-cartes--repliee .nm-page-cartes-entete {
+    justify-content: center;
+    margin-bottom: 0;
+}
+
+.nm-page-cartes--repliee .nm-page-cartes-recherche,
+.nm-page-cartes--repliee .stack-container,
+.nm-page-cartes--repliee .stack-container-etendu {
+    display: none;
+}
+
+/* --- Carte masquée par le filtre de recherche --- */
+.nm-carte-item-cachee {
+    display: none !important;
+}
+
 /* --- Carte de série (TEF), une par série pour le type de la page --- */
 .nm-carte-elt {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0;
     padding: 14px 16px;
     border: 1px solid #e5e7eb;
     border-radius: 14px;
     background: #ffffff;
     cursor: pointer;
-    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, gap 0.22s ease;
+}
+
+.nm-carte-elt.nm-carte-elt-actif {
+    gap: 10px;
 }
 
 .nm-carte-elt:hover {
@@ -363,12 +531,58 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+/* --- Bouton de suppression d'une carte (icône poubelle, entête) --- */
+.nm-carte-elt-suppr {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nm-carte-elt-suppr:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.nm-carte-elt-suppr:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 
 .nm-carte-elt-stats {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    /* Repliée par défaut : seule l'entête (badge + titre) reste
+       visible tant que cette carte n'est pas celle sélectionnée/ouverte
+       (même principe que .cnav-carte-stats à gauche) — tout se joue en
+       CSS via la classe nm-carte-elt-actif, déjà togglée en JS par
+       selecteurCartes (voir zoneAccueilTef.ts / zoneAccueilTcfCe.ts /
+       zoneAccueilTcfEe.ts / zoneAccueilTcfEo.ts). */
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.28s ease, opacity 0.2s ease;
+}
+
+.nm-carte-elt.nm-carte-elt-actif .nm-carte-elt-stats {
+    /* "Déroulée" : la carte ouverte affiche ses statistiques. */
+    max-height: 320px;
+    opacity: 1;
 }
 
 .nm-carte-elt-section-label {
@@ -422,63 +636,4 @@
     border-color: #6366f1;
     background: #eef2ff;
     box-shadow: 0 8px 18px rgba(99, 102, 241, 0.2);
-}
-
-/* ------------------------------------------------------------------ */
-/* Bouton de menu global (posé sur le porteur du panel, pas le body)   */
-/* + petit cadre "Paramètres" / "Extraction" (icône + texte).          */
-/* ------------------------------------------------------------------ */
-
-.bout-menu-accueil {
-    position: absolute;
-    display: block;
-    height: 50px;
-    width: 50px;
-    font-size: 30px;
-    border-radius: 50%;
-    border: var(--bordure-simple);
-    background-color: #97cbe9;
-    color: #2c2c2c;
-    bottom: 20px;
-    right: 20px;
-}
-
-.menu-accueil-cadre {
-    position: absolute;
-    display: none;
-    flex-direction: column;
-    gap: 4px;
-    bottom: 80px;
-    right: 20px;
-    min-width: 180px;
-    padding: 6px;
-    border-radius: 8px;
-    background: #ffffff;
-    box-shadow: var(--box-shadow);
-    z-index: var(--z-index-critical);
-}
-
-.menu-accueil-cadre--visible {
-    display: flex;
-}
-
-.menu-accueil-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    text-align: left;
-    padding: 10px 12px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    font-size: var(--font-size-medium, 14px);
-    cursor: pointer;
-}
-
-.menu-accueil-item:hover {
-    background: rgba(0, 0, 0, 0.08);
-}
-
-.menu-accueil-item .iconMateriel {
-    font-size: 20px;
 }

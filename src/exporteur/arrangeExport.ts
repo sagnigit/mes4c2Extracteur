@@ -56,7 +56,6 @@ export interface PaquetEnvoi {
     corps: any;
     corpsRequete: BodyInit;
     entetes: Record<string, string>;
-    progression?: { numero: number; total: number };
 }
 
 export interface ResultatArrangement {
@@ -238,7 +237,6 @@ export async function arrangerComprehension(
             corps: corpsAffichage,
             corpsRequete: formulaire,
             entetes: { ...HEADER_API_DPLUS },
-            progression: { numero: numeroQuestion, total },
         });
     }
 
@@ -339,7 +337,6 @@ export async function arrangerTcfCe(
             corps: corpsAffichage,
             corpsRequete: formulaire,
             entetes: { ...HEADER_API_DPLUS },
-            progression: { numero: numeroQuestion, total },
         });
     }
 

@@ -1,6 +1,7 @@
 import { ouvrirPopupTransformationImage } from '../composer/EditableImagePopup.js';
 import { rafraichirCarteTefApresAffichage } from './zoneAccueilTef.js';
-import { creerBoutonExportZone } from './boutonExportZone.js';
+import { creerBoutonExportZone, afficherBoutonExportZone } from './boutonExportZone.js';
+import { estQuestionExportable } from './verificationExport.js';
 import {ZoneExport} from '../../varUni.js';
 import {
     ElementDonnee,
@@ -142,6 +143,8 @@ const construireZoneOuvertureCommune = (
     let racineAffichage: HTMLDivElement;
     let enteteEmbed: HTMLDivElement;
     let enteteTitre: HTMLSpanElement;
+    let zoneExportStatut: HTMLSpanElement;
+    let boutonExport: HTMLButtonElement;
 
     // --- Éléments de layout, créés une seule fois à la construction ---
     let zoneNavListe: HTMLDivElement;
@@ -879,6 +882,7 @@ const construireTransMedia = (
                 if (etat.url?.startsWith('blob:')) URL.revokeObjectURL(etat.url);
                 etat.url = null;
                 rafraichir();
+                rafraichirIndicateursExport();
                 const champs = construireChampsMedia(zoneId, { vide: true });
                 if (champs) void suivreSauvegarde(enregistrerZone(index, itemDonnee, champs, definirStatut));
             });
@@ -903,6 +907,7 @@ const construireTransMedia = (
         if (etat.url?.startsWith('blob:')) URL.revokeObjectURL(etat.url);
         etat.url = URL.createObjectURL(fichier);
         rafraichir();
+        rafraichirIndicateursExport();
         enregistrerMediaDepuisSource(fichier, fichier.name, zoneId, index, itemDonnee, definirStatut);
     };
 
@@ -949,6 +954,7 @@ const construireTransTexte = (
     zone.addEventListener('input', () => {
         etat.valeur = zone.value;
         ajusterHauteur();
+        rafraichirIndicateursExport();
     });
     zone.addEventListener('blur', () => {
         const champs = construireChampsTexte(zoneId, etat.valeur);
@@ -980,6 +986,7 @@ const construireTransNombre = (
     champ.addEventListener('input', () => {
         const valeur = Number(champ.value);
         etat.valeur = Number.isFinite(valeur) ? valeur : 0;
+        rafraichirIndicateursExport();
     });
     champ.addEventListener('blur', () => {
         const champs = construireChampsNombre(zoneId, etat.valeur);
@@ -1026,6 +1033,7 @@ const construireTransListe = (
                 etat.items.forEach((autre) => { autre.correcte = false; });
                 item.correcte = true;
                 rafraichir();
+                rafraichirIndicateursExport();
                 enregistrerListe();
             });
 
@@ -1041,6 +1049,7 @@ const construireTransListe = (
             champ.placeholder = 'Proposition...';
             champ.addEventListener('input', () => {
                 item.texte = champ.value;
+                rafraichirIndicateursExport();
             });
             champ.addEventListener('blur', () => {
                 enregistrerListe();
@@ -1054,6 +1063,7 @@ const construireTransListe = (
                 etat.items = etat.items.filter((autre) => autre.id !== item.id);
                 reassignerLettres(etat.items);
                 rafraichir();
+                rafraichirIndicateursExport();
                 enregistrerListe();
             });
 
@@ -1072,6 +1082,7 @@ const construireTransListe = (
             etat.items.push({ id: genererId(), texte: '', correcte: false, lettre: '' });
             reassignerLettres(etat.items);
             rafraichir();
+            rafraichirIndicateursExport();
             enregistrerListe();
         });
         conteneur.appendChild(btnAjouter);
@@ -1183,6 +1194,7 @@ const construireZone = (zoneDef: ZoneDef, item: ElementDonnee, index: number): H
                     if (etat.url?.startsWith('blob:')) URL.revokeObjectURL(etat.url);
                     etat.url = urlImage;
                     rendreTrans();
+                    rafraichirIndicateursExport();
                     enregistrerMediaDepuisSource(blobImage, 'image.png', zoneDef.id, index, item, definirStatut);
                 },
             });
@@ -1201,6 +1213,7 @@ const construireZone = (zoneDef: ZoneDef, item: ElementDonnee, index: number): H
             etat.valeur = valeurExtrait.valeur;
         }
         rendreTrans();
+        rafraichirIndicateursExport();
 
         // La copie depuis l'extrait modifie directement la partie
         // transformée : elle est donc enregistrée immédiatement, au même
@@ -1243,6 +1256,45 @@ const construireTitre = (item: ElementDonnee, type: TypeEpreuve, index: number):
     const numero = item.numeroQuestion ?? item.numero;
     const prefixe = (type === 'ee' || type === 'eo') ? 'Sujet' : 'Question';
     return numero !== undefined ? `${prefixe} ${numero}` : `${prefixe} ${index + 1}`;
+};
+
+// Recalcule, pour CHAQUE élément de la série actuellement ouverte, son
+// état "prêt à l'exportation" (voir estQuestionExportable dans
+// verificationExport.ts à partir de l'état courant des zones
+// transformées), puis met à jour :
+//  - le style distinctif du bouton numéroté de chaque question
+//    (classe affichage-nav-btn--exportable) ;
+//  - le message d'entête, à côté du bouton d'export : rien ne
+//    s'affiche dès que TOUTES les questions sont prêtes, sinon un
+//    message indique combien il en reste à corriger.
+// À appeler à l'ouverture d'une série (afficherDonnees) ainsi qu'à
+// chaque modification d'une zone transformée (texte, image, audio,
+// liste, nombre, copie depuis l'extrait).
+const rafraichirIndicateursExport = (): void => {
+    if (!zoneExportStatut) return;
+
+    let nombreNonPrets = 0;
+
+    const zoneExport = `${examenCourant}-${typeCourant}` as ZoneExport;
+    donneesCourantes.forEach((item, index) => {
+        const zones = transformationsParIndex.get(index) ?? new Map();
+        const pret = estQuestionExportable(zoneExport, item, zones);
+        if (!pret) nombreNonPrets++;
+        boutonsNav[index]?.classList.toggle('affichage-nav-btn--exportable', pret);
+    });
+
+    const toutExportable = donneesCourantes.length > 0 && nombreNonPrets === 0;
+    if (boutonExport) afficherBoutonExportZone(boutonExport, toutExportable);
+
+    if (donneesCourantes.length === 0 || nombreNonPrets === 0) {
+        zoneExportStatut.textContent = '';
+        zoneExportStatut.classList.remove('affichage-embed-export-statut--visible');
+    } else {
+        zoneExportStatut.textContent = nombreNonPrets === 1
+            ? '1 question à corriger avant l’exportation'
+            : `${nombreNonPrets} questions à corriger avant l’exportation`;
+        zoneExportStatut.classList.add('affichage-embed-export-statut--visible');
+    }
 };
 
 // Affiche dans la zone de contenu (à droite) l'élément à l'index donné,
@@ -1292,13 +1344,21 @@ const selectionnerIndex = (index: number): void => {
     enteteTitre.className = 'affichage-embed-entete-titre';
     enteteEmbed.appendChild(enteteTitre);
 
+    // Indicateur d'exportabilité : reste vide (rien de visible) tant
+    // que toutes les questions de la série ouverte ne sont pas prêtes
+    // à l'exportation ; sinon affiche combien il en reste à corriger
+    // (voir rafraichirIndicateursExport, mise à jour à l'ouverture et
+    // à chaque modification d'une zone transformée).
+    zoneExportStatut = document.createElement('span');
+    zoneExportStatut.className = 'affichage-embed-export-statut';
+    enteteEmbed.appendChild(zoneExportStatut);
+
     // La zone (examen + type) est fixe pour cette instance : une
     // instance = une page CE/CO/EE/EO d'un seul examen (voir en-tête
     // du fichier) — seul l'id (la série affichée) change au fil des
     // appels à afficherDonnees, récupéré ici via idCourant.
-    enteteEmbed.appendChild(
-        creerBoutonExportZone(`${examen}-${type}` as ZoneExport, () => idCourant)
-    );
+    boutonExport = creerBoutonExportZone(`${examen}-${type}` as ZoneExport, () => idCourant);
+    enteteEmbed.appendChild(boutonExport);
 
     racineAffichage.appendChild(enteteEmbed);
 
@@ -1414,6 +1474,11 @@ const selectionnerIndex = (index: number): void => {
             zoneNavListe.appendChild(btn);
             return btn;
         });
+
+        // Etat d'exportabilité initial de la série tout juste ouverte
+        // (à partir de ce qui vient d'être relu depuis le disque via
+        // initialiserEtatDepuisTransforme ci-dessus).
+        rafraichirIndicateursExport();
 
         if (donnees.length === 0) {
             // Rien à afficher : petit message seul, ni nav ni boutons.

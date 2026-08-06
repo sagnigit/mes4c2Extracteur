@@ -23,8 +23,10 @@
 // TCF).
 import { construireCorpsPage, afficherMessageZone } from '../composer/corpsPage.js';
 import { Selecteur } from '../generale/selecteur.js';
+import { creerBoutonSupprimerCarte } from '../generale/carteSuppression.js';
 import { creerMessage, typeErreur } from './gestionMessage.js';
-import { creerBoutonExportZone } from './boutonExportZone.js';
+import { creerBoutonExportZone, afficherBoutonExportZone } from './boutonExportZone.js';
+import { estQuestionExportable } from './verificationExport.js';
 import { construireSectionStats, calculerStatsExtraitTcfEeEo, calculerStatsTransformeTcfEeEo } from './statsElement.js';
 import {
     CarteTcfEe,
@@ -32,6 +34,7 @@ import {
     listerTcfEe,
     lireTcfEe,
     sauvegarderTransformeTcfEe,
+    supprimerTcfEe,
 } from './donneeTcfEeApi.js';
 
 // Libellés fixes des blocs (voir en-tête du fichier).
@@ -60,17 +63,32 @@ export const remplirZoneTcfEe = async (page: HTMLDivElement): Promise<void> => {
         const cartes = await listerTcfEe();
         listeCartes.setEmptyMessage('Aucune donnée EE extraite pour le moment.');
 
+        // ouvrirPremiereCarte retient le déclenchement (mêmes actions que
+        // le clic) de la toute première carte affichée, pour l'ouvrir
+        // automatiquement une fois la liste construite (voir plus bas) :
+        // dès qu'il y a au moins une carte, une carte reste toujours
+        // ouverte au centre plutôt que le message "Sélectionnez...".
+        let ouvrirPremiereCarte: (() => void) | null = null;
+
         for (const infoCarte of cartes) {
             const resultat = await lireTcfEe(infoCarte.id);
             const extrait = resultat.success ? (resultat.extrait ?? []) : [];
             const transforme = resultat.success ? (resultat.transforme ?? extrait) : null;
 
-            const carte = creerCarteTcfEe(infoCarte, extrait, transforme, () => {
+            const ouvrirCarte = () => {
                 selecteurCartes.selectUnique(carte);
                 void afficherContenuTcfEe(zoneAffichage, infoCarte);
-            });
+            };
+            const carte = creerCarteTcfEe(infoCarte, extrait, transforme, ouvrirCarte, () =>
+                void remplirZoneTcfEe(page)
+            );
             listeCartes.addItem(carte);
+
+            if (!ouvrirPremiereCarte) ouvrirPremiereCarte = ouvrirCarte;
         }
+
+        // Ouvre par défaut la première carte, s'il y en a au moins une.
+        ouvrirPremiereCarte?.();
     } catch {
         listeCartes.setEmptyMessage('Erreur lors du chargement des données EE.');
     }
@@ -93,7 +111,8 @@ const creerCarteTcfEe = (
     infoCarte: CarteTcfEe,
     extrait: PartieEE[],
     transforme: PartieEE[] | null,
-    onClick: () => void
+    onClick: () => void,
+    onSupprime: () => void
 ): HTMLDivElement => {
     const carte = document.createElement('div');
     carte.className = 'nm-carte-elt nm-carte-elt--ee';
@@ -111,7 +130,13 @@ const creerCarteTcfEe = (
     titre.textContent = infoCarte.nom;
     titre.title = infoCarte.nom;
 
-    entete.append(badge, titre);
+    const boutonSuppr = creerBoutonSupprimerCarte(
+        infoCarte.nom,
+        () => supprimerTcfEe(infoCarte.id),
+        onSupprime
+    );
+
+    entete.append(badge, titre, boutonSuppr);
     carte.appendChild(entete);
 
     const zoneStats = document.createElement('div');
@@ -172,6 +197,7 @@ const afficherContenuTcfEe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
         void sauvegarderTransformeTcfEe(infoCarte.id, etatTransforme).then((res) => {
             if (!res.success) creerMessage(typeErreur, infoCarte.nom, res.error ?? "Échec de l'enregistrement.");
         });
+        rafraichirIndicateursExport();
     };
 
     // --- Construction de la zone (entête + navigation + contenu) ---
@@ -188,7 +214,17 @@ const afficherContenuTcfEe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
     enteteTitre.textContent = `${infoCarte.nom} — EE`;
     enteteEmbed.appendChild(enteteTitre);
 
-    enteteEmbed.appendChild(creerBoutonExportZone('tcf-ee', () => infoCarte.id));
+    // Indicateur d'exportabilité : reste vide tant que toutes les
+    // parties ne sont pas prêtes à l'exportation, sinon affiche
+    // combien il en reste à corriger (voir rafraichirIndicateursExport
+    // plus bas, appelée à l'ouverture et à chaque modification, via
+    // enregistrer()).
+    const zoneExportStatut = document.createElement('span');
+    zoneExportStatut.className = 'affichage-embed-export-statut';
+    enteteEmbed.appendChild(zoneExportStatut);
+
+    const boutonExport = creerBoutonExportZone('tcf-ee', () => infoCarte.id);
+    enteteEmbed.appendChild(boutonExport);
 
     racine.appendChild(enteteEmbed);
 
@@ -228,6 +264,32 @@ const afficherContenuTcfEe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
 
     let indexCourant = 0;
     let boutonsNav: HTMLButtonElement[] = [];
+
+    // Recalcule, pour CHAQUE partie de la carte ouverte, son état
+    // "prête à l'exportation" (voir estQuestionExportable dans
+    // verificationExport.ts), puis met à jour le style distinctif du
+    // bouton numéroté correspondant ainsi que le message d'entête
+    // (rien ne s'affiche dès que tout est prêt).
+    const rafraichirIndicateursExport = (): void => {
+        let nombreNonPrets = 0;
+        extrait.forEach((partieExtrait, index) => {
+            const pret = estQuestionExportable('tcf-ee', partieExtrait, etatTransforme[index]);
+            if (!pret) nombreNonPrets++;
+            boutonsNav[index]?.classList.toggle('affichage-nav-btn--exportable', pret);
+        });
+
+        afficherBoutonExportZone(boutonExport, extrait.length > 0 && nombreNonPrets === 0);
+
+        if (extrait.length === 0 || nombreNonPrets === 0) {
+            zoneExportStatut.textContent = '';
+            zoneExportStatut.classList.remove('affichage-embed-export-statut--visible');
+        } else {
+            zoneExportStatut.textContent = nombreNonPrets === 1
+                ? '1 partie à corriger avant l’exportation'
+                : `${nombreNonPrets} parties à corriger avant l’exportation`;
+            zoneExportStatut.classList.add('affichage-embed-export-statut--visible');
+        }
+    };
 
     const selectionnerIndex = (index: number): void => {
         if (index < 0 || index >= extrait.length) return;
@@ -272,6 +334,7 @@ const afficherContenuTcfEe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
         return btn;
     });
 
+    rafraichirIndicateursExport();
     selectionnerIndex(0);
 };
 

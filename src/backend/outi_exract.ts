@@ -1,8 +1,8 @@
 import { rechargeLien, getNomLien, NomLienExtrait, LienBrute } from './conserveLien.js';
-import { enregistrerDonneeTcfEo, PartieEO } from './donnee_tcf_eo.js';
-import { enregistrerDonneeTcfEe, PartieEE } from './donnee_tcf_ee.js';
-import { enregistrerDonneeTcfCe } from './donnee_tcf_ce.js';
-import { enregistrerDonneeTcfCo } from './donnee_tcf_co.js';
+import { enregistrerDonneeTcfEo, PartieEO, possedeDonneeTcfEo } from './donnee_tcf_eo.js';
+import { enregistrerDonneeTcfEe, PartieEE, possedeDonneeTcfEe } from './donnee_tcf_ee.js';
+import { enregistrerDonneeTcfCe, possedeDonneeTcfCe } from './donnee_tcf_ce.js';
+import { enregistrerDonneeTcfCo, possedeDonneeTcfCo } from './donnee_tcf_co.js';
 import { processSerieTef, type TefRefs } from './traite_extract_tef.js';
 import {
     cheminDossierSerie,
@@ -16,7 +16,7 @@ import {
 import { creer_dossier } from './gardienRef.js';
 // Référencement : SEULE source des noms de dossier TEF (préfixés
 // "tef_") et de leur mapping id (lien) ↔ dossier ↔ nom affichable.
-import { getCheminEnsDossierTef } from './gestion_ref_tef.js';
+import { getCheminEnsDossierTef, possedeDossierTefPourLien } from './gestion_ref_tef.js';
 import {
     questionsCeFromRawLight,
     questionsCoFromRawLight,
@@ -92,6 +92,10 @@ export interface InfoDonneeTraitee {
     nbSeries?: number;
     nbCreees?: number;
     error?: string;
+    // Id du lien concerné (celui sur lequel on a cliqué dans la liste) :
+    // permet au renderer (zoneExtract.ts) de marquer directement CET
+    // élément comme "déjà traité" sans avoir à relister/rouvrir l'appli.
+    idLien?: string;
 }
 
 let notifierDonneeTraitee: ((idActu: string, info: InfoDonneeTraitee) => void) | null = null;
@@ -140,6 +144,7 @@ async function traiterDonneeTcfCe(
 ): Promise<void> {
     if (valeur === null || valeur === undefined) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: "Le code injecté n'a retourné aucune donnée.",
         });
@@ -149,6 +154,7 @@ async function traiterDonneeTcfCe(
     const raw = typeof valeur === 'string' ? valeur : String(valeur);
     if (!raw.trim()) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: 'Donnée CE vide.',
         });
@@ -160,6 +166,7 @@ async function traiterDonneeTcfCe(
         questions = questionsCeFromRawLight(raw);
     } catch (err: any) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: err?.message ?? 'Échec du parsing de la donnée CE.',
         });
@@ -168,6 +175,7 @@ async function traiterDonneeTcfCe(
 
     if (!questions.length) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: 'Aucune question exploitable trouvée sur cette page.',
         });
@@ -181,12 +189,14 @@ async function traiterDonneeTcfCe(
 
     if (!resultat.success) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: resultat.error ?? "Échec de l'enregistrement.",
         });
         return;
     }
     notifierDonneeTraitee?.(idActu, {
+            idLien,
         success: true,
         nbSeries: 1,
         nbCreees: resultat.cree ? 1 : 0,
@@ -212,6 +222,7 @@ async function traiterDonneeTcfCo(
 ): Promise<void> {
     if (valeur === null || valeur === undefined) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: "Le code injecté n'a retourné aucune donnée.",
         });
@@ -221,6 +232,7 @@ async function traiterDonneeTcfCo(
     const raw = typeof valeur === 'string' ? valeur : String(valeur);
     if (!raw.trim()) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: 'Donnée CO vide.',
         });
@@ -232,6 +244,7 @@ async function traiterDonneeTcfCo(
         questions = questionsCoFromRawLight(raw);
     } catch (err: any) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: err?.message ?? 'Échec du parsing de la donnée CO.',
         });
@@ -240,6 +253,7 @@ async function traiterDonneeTcfCo(
 
     if (!questions.length) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: 'Aucune question exploitable trouvée sur cette page.',
         });
@@ -273,6 +287,7 @@ async function traiterDonneeTcfCo(
         if (!resultat.success) {
             progresser(idActu, 'termine', 'Échec de l’enregistrement.');
             notifierDonneeTraitee?.(idActu, {
+            idLien,
                 success: false,
                 error: resultat.error ?? "Échec de l'enregistrement.",
             });
@@ -281,6 +296,7 @@ async function traiterDonneeTcfCo(
 
         progresser(idActu, 'termine', 'Donnée CO enregistrée.');
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: true,
             nbSeries: 1,
             nbCreees: resultat.cree ? 1 : 0,
@@ -288,6 +304,7 @@ async function traiterDonneeTcfCo(
     } catch (err: any) {
         progresser(idActu, 'termine', 'Échec de l’enregistrement.');
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: err?.message ?? String(err),
         });
@@ -308,6 +325,7 @@ async function traiterDonneeTcfEo(
 ): Promise<void> {
     if (valeur === null || valeur === undefined) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: "Le code injecté n'a retourné aucune donnée.",
         });
@@ -319,6 +337,7 @@ async function traiterDonneeTcfEo(
         parties = typeof valeur === 'string' ? JSON.parse(valeur) : valeur;
     } catch {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: 'Réponse illisible (JSON invalide).',
         });
@@ -326,6 +345,7 @@ async function traiterDonneeTcfEo(
     }
     if (!Array.isArray(parties) || parties.length === 0) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: 'Aucune donnée exploitable trouvée sur cette page.',
         });
@@ -337,12 +357,14 @@ async function traiterDonneeTcfEo(
 
     if (!resultat.success) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: resultat.error ?? "Échec de l'enregistrement.",
         });
         return;
     }
     notifierDonneeTraitee?.(idActu, {
+            idLien,
         success: true,
         nbSeries: 1,
         nbCreees: resultat.cree ? 1 : 0,
@@ -359,6 +381,7 @@ async function traiterDonneeTcfEe(
 ): Promise<void> {
     if (valeur === null || valeur === undefined) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: "Le code injecté n'a retourné aucune donnée.",
         });
@@ -370,6 +393,7 @@ async function traiterDonneeTcfEe(
         parties = typeof valeur === 'string' ? JSON.parse(valeur) : valeur;
     } catch {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: 'Réponse illisible (JSON invalide).',
         });
@@ -377,6 +401,7 @@ async function traiterDonneeTcfEe(
     }
     if (!Array.isArray(parties) || parties.length === 0) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: 'Aucune donnée exploitable trouvée sur cette page.',
         });
@@ -388,12 +413,14 @@ async function traiterDonneeTcfEe(
 
     if (!resultat.success) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: resultat.error ?? "Échec de l'enregistrement.",
         });
         return;
     }
     notifierDonneeTraitee?.(idActu, {
+            idLien,
         success: true,
         nbSeries: 1,
         nbCreees: resultat.cree ? 1 : 0,
@@ -454,6 +481,7 @@ async function traiterDonneeTefSession(
 ): Promise<void> {
     if (valeur === null || valeur === undefined) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: "Le code injecté n'a retourné aucune donnée.",
         });
@@ -464,6 +492,7 @@ async function traiterDonneeTefSession(
     const raw = typeof valeur === 'string' ? valeur : String(valeur);
     if (!raw.trim()) {
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: 'Donnée TEF vide.',
         });
@@ -495,6 +524,7 @@ async function traiterDonneeTefSession(
         if (!resultat.success) {
             progresser(idActu, 'termine', 'Échec du traitement de la session TEF.');
             notifierDonneeTraitee?.(idActu, {
+            idLien,
                 success: false,
                 error: resultat.error ?? "Échec du traitement de la série TEF.",
             });
@@ -508,6 +538,7 @@ async function traiterDonneeTefSession(
         progresser(idActu, 'termine', 'Session TEF enregistrée.');
 
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: true,
             nbSeries: 4,
             nbCreees: 4,
@@ -519,6 +550,7 @@ async function traiterDonneeTefSession(
         // resterait bloqué ouvert.
         progresser(idActu, 'termine', 'Échec du traitement de la session TEF.');
         notifierDonneeTraitee?.(idActu, {
+            idLien,
             success: false,
             error: err?.message ?? String(err),
         });
@@ -532,6 +564,28 @@ export let dataManipDonne: DictManipDonneeStr = {
     ['tcf-ee']: traiterDonneeTcfEe,
     ['tcf-eo']: traiterDonneeTcfEo,
     ['tef-session']: traiterDonneeTefSession,
+};
+
+// Pour chaque idActu, permet de savoir si UN lien précis (idLien) a déjà
+// un dossier de donnée associé (utilisé pour distinguer, dans la zone
+// d'extraction, les liens déjà traités des autres — voir zoneExtract.ts
+// et le handler 'extraction:listerLiens' dans extractionDirecte.ts).
+// Pour 'tef-session', les 4 dossiers (ce/co/ee/eo) sont toujours créés
+// ensemble (voir getCheminEnsDossierTef) : possedeDossierTefPourLien
+// vérifie les 4, en cherchant idLien à la fois en clé exacte ET dans le
+// nom de dossier référencé (cas d'un dossier orphelin resynchronisé
+// depuis le disque, voir gestion_ref_tef.ts).
+const dataVerifDonnee: { [idActu: string]: (idLien: string) => boolean } = {
+    ['tcf-ce']: possedeDonneeTcfCe,
+    ['tcf-co']: possedeDonneeTcfCo,
+    ['tcf-ee']: possedeDonneeTcfEe,
+    ['tcf-eo']: possedeDonneeTcfEo,
+    ['tef-session']: possedeDossierTefPourLien,
+};
+
+/** Vrai si le lien (idActu, idLien) possède déjà un dossier de donnée. */
+export const possedeDonnee = (idActu: string, idLien: string): boolean => {
+    return dataVerifDonnee[idActu]?.(idLien) ?? false;
 };
 
 // Prévient le renderer (voir zoneExtract.ts) qu'une liste de liens
@@ -577,7 +631,10 @@ function creerGestionnaireLien(idActu: string): (valeur: any) => Promise<void> {
         }
 
         const fusion = rechargeLien(idActu, nouveaux as LienBrute[]);
-        notifierMajLiens?.(idActu, fusion);
+        notifierMajLiens?.(
+            idActu,
+            fusion.map((lien) => ({ ...lien, aDossier: possedeDonnee(idActu, lien.id) }))
+        );
     };
 }
 

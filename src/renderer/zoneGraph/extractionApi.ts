@@ -21,6 +21,9 @@ export interface LienExtrait {
     id: string;
     url: string;
     nom: string;
+    // Vrai si ce lien possède déjà un dossier de donnée associé (voir
+    // possedeDonnee côté processus principal, outi_exract.ts).
+    aDossier?: boolean;
 }
 
 // Charge les liens déjà enregistrés pour un idActu (voir
@@ -33,6 +36,21 @@ export const listerLiensExtraits = (idActu: string): Promise<LienExtrait[]> => {
 // enregistrement suite à une actualisation — voir outi_exract.ts).
 export const ecouteMajLiens = (callback: (idActu: string, liens: LienExtrait[]) => void): void => {
     window.api.on('extraction:liens-maj', (_event, idActu: string, liens: LienExtrait[]) => callback(idActu, liens));
+};
+
+// Abonnement au changement d'état "déjà extrait" d'UN lien précis, sans
+// attendre une actualisation complète de la liste — envoyé notamment
+// après la suppression d'une carte TEF (voir 'conserveur:delete-series'
+// dans main.ts) : si plus aucun dossier n'est lié à ce lien, aDossier
+// vaut false et l'item correspondant doit être démarqué dans la liste
+// (voir zoneExtract.ts).
+export const ecouteEtatItemLien = (
+    callback: (idActu: string, idItem: string, aDossier: boolean) => void
+): void => {
+    window.api.on(
+        'extraction:item-etat',
+        (_event, idActu: string, idItem: string, aDossier: boolean) => callback(idActu, idItem, aDossier)
+    );
 };
 
 // Abonnement aux changements d'état de n'importe quelle tâche
@@ -64,6 +82,11 @@ export interface InfoDonneeTraitee {
     nbSeries?: number;
     nbCreees?: number;
     error?: string;
+    // Id du lien concerné par ce traitement (voir InfoDonneeTraitee côté
+    // outi_exract.ts) : permet de marquer directement cet élément comme
+    // "déjà traité" dans la liste (voir zoneExtract.ts), sans attendre
+    // une réouverture de l'appli.
+    idLien?: string;
 }
 
 //lencement de l'injection pour la ecuperation des données

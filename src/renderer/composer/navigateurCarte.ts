@@ -53,7 +53,13 @@ const LIBELLES: { cle: keyof CompteursType; label: string }[] = [
  */
 export class NavigateurCarte {
     private root: HTMLDivElement;
+    // Conteneur global de la colonne de gauche (cartes + pied de colonne).
     private navRoot: HTMLDivElement;
+    // Sous-zone scrollable qui reçoit les boutons-cartes de NavigationManager.
+    private cartesRoot: HTMLDivElement;
+    // Sous-zone fixe sous les cartes, pour des boutons additionnels
+    // (ex: Extraction / Création / Paramètres) — voir getPiedColonne().
+    private piedRoot: HTMLDivElement;
     private pageRoot: HTMLDivElement;
     private manager: NavigationManager;
 
@@ -70,19 +76,31 @@ export class NavigateurCarte {
         this.root.innerHTML = "";
         this.root.classList.add("cnav-root");
 
-        // --- Division en 2 zones ---
+        // --- Division en 2 zones (gauche / droite) ---
         this.navRoot = document.createElement("div");
         this.navRoot.classList.add("cnav-colonne");
+
+        // La colonne de gauche est elle-même divisée en 2 : les cartes
+        // (scrollables, prennent l'espace restant) puis le pied de
+        // colonne (fixe, sous les cartes).
+        this.cartesRoot = document.createElement("div");
+        this.cartesRoot.classList.add("cnav-colonne-cartes");
+        this.navRoot.appendChild(this.cartesRoot);
+
+        this.piedRoot = document.createElement("div");
+        this.piedRoot.classList.add("cnav-colonne-pied");
+        this.navRoot.appendChild(this.piedRoot);
 
         this.pageRoot = document.createElement("div");
         this.pageRoot.classList.add("cnav-pages");
 
         this.root.append(this.navRoot, this.pageRoot);
 
-        // --- Delegation à NavigationManager ---
+        // --- Delegation à NavigationManager (les boutons-cartes vont
+        // dans cartesRoot, pas directement dans navRoot) ---
         this.manager = new NavigationManager(
             this.pageRoot,
-            this.navRoot,
+            this.cartesRoot,
             activeClass
         );
 
@@ -182,6 +200,16 @@ export class NavigateurCarte {
     /** Ouvre une carte précise (et met à jour son état actif) */
     public openPage(index: number): void {
         this.manager.openPage(index);
+    }
+
+    /**
+     * Zone fixe en bas de la colonne de gauche, sous les cartes —
+     * destinée à accueillir des boutons additionnels (ex: Extraction /
+     * Création / Paramètres, voir initPiedColonneAccueil dans
+     * zoneAccueil.ts). Ne défile pas avec les cartes.
+     */
+    public getPiedColonne(): HTMLDivElement {
+        return this.piedRoot;
     }
 
     /** Nombre total de cartes/pages créées */

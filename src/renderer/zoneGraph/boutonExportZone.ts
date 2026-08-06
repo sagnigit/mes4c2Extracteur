@@ -32,7 +32,10 @@ export const creerBoutonExportZone = (
 ): HTMLButtonElement => {
     const bouton = document.createElement('button');
     bouton.type = 'button';
-    bouton.className = 'affichage-embed-export-btn iconMateriel zoneReacif';
+    // Masqué par défaut : n'apparaît (voir affichage-embed-export-btn--cache
+    // dans extraction.css) que lorsque l'appelant confirme, via
+    // afficherBoutonExportZone, que l'élément courant est exportable.
+    bouton.className = 'affichage-embed-export-btn affichage-embed-export-btn--cache iconMateriel zoneReacif';
     bouton.textContent = 'cloud_upload';
     bouton.title = 'Exporter';
 
@@ -44,4 +47,18 @@ export const creerBoutonExportZone = (
     });
 
     return bouton;
+};
+
+/**
+ * Affiche ou cache le bouton d'export (voir creerBoutonExportZone),
+ * selon que l'élément courant est exportable ou non. À appeler à
+ * chaque recalcul de l'état d'exportabilité (rafraichirIndicateursExport
+ * dans zoneAff.ts, zoneAccueilTcfCe.ts, zoneAccueilTcfEe.ts et
+ * zoneAccueilTcfEo.ts).
+ */
+export const afficherBoutonExportZone = (
+    bouton: HTMLButtonElement,
+    exportable: boolean
+): void => {
+    bouton.classList.toggle('affichage-embed-export-btn--cache', !exportable);
 };

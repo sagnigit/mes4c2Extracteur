@@ -48,9 +48,9 @@ export const setOuvreVueCallback = (fn: () => void) => {
 };
 
 // Nettoyage COMPLET de la partition d'export (tout le storage + cookies + cache + etc.)
-export async function clearAllExportStorage(): Promise<void> {
+export async function clearAllPartionStorage(partion: string = PARTITION_EXPORT): Promise<void> {
     try {
-        const exportSession = electronSession.fromPartition(PARTITION_EXPORT);
+        const exportSession = electronSession.fromPartition(partion);
 
         // Supprime TOUT le storage (cookies, localStorage, IndexedDB, Cache, Service Workers, etc.)
         await exportSession.clearStorageData();
@@ -154,13 +154,13 @@ export const initExporteur = (feneTre: BrowserWindow) => {
     //initialisation des outil d'exportation
     if ([...Object.keys(dataOutil)].length <= 0) {
         dataOutil["mode"] = "defaut";
-        dataOutil["url-defaut-tcf"] = "https://dashboard.mes4c2-tcfcanada.com/auth/saveAll.php";
-        dataOutil["url-defaut-tef"] = "https://dashboard.mes4c2-tcfcanada.com/auth/saveAll2.php";
-        dataOutil["url-defaut-connect"] = "https://dashboard.mes4c2-tcfcanada.com/";
         dataOutil["url-perso-tcf"] = "";
         dataOutil["url-perso-tef"] = "";
         dataOutil["url-perso-connect"] = "";
     }
+    dataOutil["url-defaut-tcf"] = "https://dashboard.mes4c2-tcfcanada.com/auth/saveAll.php";
+    dataOutil["url-defaut-tef"] = "https://dashboard.mes4c2-tcfcanada.com/auth/saveAll2.php";
+    dataOutil["url-defaut-connect"] = "https://dashboard.mes4c2-tcfcanada.com/";
 
     //gestion des ecouteurs pour la recuperation des references dans le renderer 
     ipcMain.handle('param:recup-ref', async () => {
@@ -189,7 +189,6 @@ export const initExporteur = (feneTre: BrowserWindow) => {
     // `info.id` identifie l'élément dans cette zone.
     ipcMain.on('export-ecoute:lancer', async (_event, info: { zone: ZoneExport; id: string }) => {
         const [examen, type] = info.zone.split('-') as [Examen, TypeEpreuve];
-
         try {
             // 1) Session sur le site distant : si absente, on ne peut
             // rien envoyer -> on prévient le renderer (payload `null`,
@@ -244,19 +243,15 @@ export const initExporteur = (feneTre: BrowserWindow) => {
                 const resultat = await envoyerUnique(session, url, arrangement.paquets[0]);
                 feneTreGbl.webContents.send('export-ecoute:fin', {
                     type: info.zone,
-                    correct: resultat.success,
-                    message: resultat.success
-                        ? 'Exportation réussie.'
-                        : (resultat.error ?? "Erreur lors de l'exportation."),
+                    correct: resultat.correct,
+                    message: resultat.message,
                 });
             } else {
-                const resultat = await envoyerProgressif(session, url, arrangement.paquets);
+                const resultat = await envoyerProgressif(session, url, arrangement.paquets, feneTre);
                 feneTreGbl.webContents.send('export-ecoute:fin', {
                     type: info.zone,
-                    correct: resultat.success,
-                    message: resultat.success
-                        ? `Exportation réussie (${resultat.nbEnvoyes} question(s)).`
-                        : (resultat.dernierResultat?.error ?? "Erreur lors de l'exportation."),
+                    correct: resultat.dernierResultat?.correct,
+                    message: resultat.dernierResultat?.message
                 });
             }
         } catch (err: any) {
@@ -283,7 +278,8 @@ export function obtenirSessionExport(): Session {
 // directement les données.
 export async function possedeSessionExport(): Promise<boolean> {
     try {
-        const cookies = await obtenirSessionExport().cookies.get({ url: getLien("connect") });
+        const lien = getLien("connect");
+        const cookies = await obtenirSessionExport().cookies.get({ url: lien });
         return cookies.length > 0;
     } catch {
         return false;

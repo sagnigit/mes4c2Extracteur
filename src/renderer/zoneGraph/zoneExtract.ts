@@ -16,9 +16,10 @@
 import { Panel } from "../composer/Panel.js";
 import { NavigateurModerne } from "../composer/navigateurModerne.js";
 import { ActualisableList } from "../composer/actualisable.js";
-import {listeIdActu} from "../../varUni.js";
-import { extractLien, extractDonnee, listerLiensExtraits, ecouteMajLiens, ecouteDonneeTraitee, LienExtrait } from "./extractionApi.js";
+import { listeIdActu } from "../../varUni.js";
+import { extractLien, extractDonnee, listerLiensExtraits, ecouteMajLiens, ecouteDonneeTraitee, ecouteEtatItemLien, LienExtrait } from "./extractionApi.js";
 import { creerMessage, typeReussite, typeErreur } from "./gestionMessage.js";
+import { ouvreZoneBloquant, fermerZoneBloquant } from './zoneBloquante.js';
 
 let panConserveur: Panel;
 let gestionNavExtract: NavigateurModerne;
@@ -34,6 +35,24 @@ const titresNavExtract: string[] = [];
 
 export const initZoneExtract = () => {
   panConserveur = new Panel("Extraction", true);
+
+  //construction du bouton d'effacement de la sesssion d'extraction
+  const boutEff = document.createElement("button");
+  boutEff.className = "eff_session_extract";
+  boutEff.textContent = "Effacer les cokies";
+  panConserveur.getContainer().appendChild(boutEff);
+  boutEff.addEventListener("click", async (even) => {
+    ouvreZoneBloquant("Effacement des cookie des cite d'extraction");
+    const resp = await window.api.invoke("lienExtract:efface_cookie", null);
+    fermerZoneBloquant();
+    creerMessage(
+      typeReussite,
+      "Efface cookie",
+      "Tous les cookies d'extractions sont supprimés"
+    )
+  });
+
+  //consturction du corps
   const bodyExtrat = panConserveur.getBody();
   bodyExtrat.classList.add("body_extract");
 
@@ -127,6 +146,14 @@ export const initZoneExtract = () => {
       return;
     }
 
+    // Le lien qu'on vient d'extraire possède désormais un dossier : on
+    // marque directement son item dans la liste (signe distinctif
+    // visuel), sans attendre une actualisation ni une réouverture de
+    // l'appli.
+    if (info.idLien && listesNavExtract[index]) {
+      listesNavExtract[index].marquerTraite(info.idLien);
+    }
+
     const nbSeries = info.nbSeries ?? 0;
     const nbCreees = info.nbCreees ?? 0;
     const nbMaJ = nbSeries - nbCreees;
@@ -140,6 +167,21 @@ export const initZoneExtract = () => {
       `Donnée enregistrée : ${nbSeries} série(s)${details.length ? ` (${details.join(", ")})` : ""}.`
     );
   });
+
+  // Rafraîchit directement (sans réactualiser toute la liste) l'état
+  // "déjà extrait" d'UN lien précis — envoyé après la suppression d'une
+  // carte de série (voir 'conserveur:delete-series' dans main.ts) :
+  // s'il ne reste plus aucun dossier pour ce lien, on retire la marque
+  // visuelle ; sinon (cas théorique, notification positive) on la pose.
+  ecouteEtatItemLien((idActu, idItem, aDossier) => {
+    const index = listeIdActu.indexOf(idActu);
+    if (index === -1 || !listesNavExtract[index]) return;
+    if (aDossier) {
+      listesNavExtract[index].marquerTraite(idItem);
+    } else {
+      listesNavExtract[index].demarquerTraite(idItem);
+    }
+  });
 };
 
 // Convertit les liens enregistrés (id/url/nom) en éléments affichables :
@@ -150,6 +192,7 @@ const construireItems = (index: number, liens: LienExtrait[]) =>
     id: lien.id,
     text: lien.nom,
     onClick: () => actualiseItem(index, lien.id),
+    dejaTraite: lien.aDossier === true,
   }));
 
 // Fonction d'actualisation appelée par le bouton de chaque page. Pas

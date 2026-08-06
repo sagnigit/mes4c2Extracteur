@@ -6,12 +6,13 @@
 // attachés à la requête. Utilisé pour les arrangements en mode "unique"
 // (EE, EO) et réutilisé question par question par export_progressif.ts.
 //
-// Reprend exactement la logique de lecture de réponse de l'ancien
-// export TCF (session.fetch) : le corps est TOUJOURS lu en texte brut
-// d'abord (`reponse.text()`), puis parsé nous-mêmes en JSON — jamais
-// `reponse.json()` directement, qui consommerait le flux sans laisser
-// de recours si le parsing échoue (utile pour voir un éventuel warning
-// PHP qui casse le JSON attendu, même avec un statut HTTP 200).
+// `correct` est true uniquement si la requête a abouti ET que le
+// serveur a répondu avec un statut de succès (2xx). Dans tous les
+// autres cas (délai dépassé, requête non envoyée, erreur réseau,
+// statut d'erreur renvoyé par le serveur) `correct` est false.
+// `message` contient toujours le texte : soit le corps brut de la
+// réponse du serveur, soit le message d'erreur de la requête elle-même
+// si aucune réponse n'a pu être obtenue.
 
 import type { Session } from 'electron';
 import type { PaquetEnvoi } from './arrangeExport.js';
@@ -22,10 +23,8 @@ import type { PaquetEnvoi } from './arrangeExport.js';
 const DUREE_ATTENTE_MS = 60000;
 
 export interface ResultatEnvoi {
-    success: boolean;
-    status?: number;
-    data?: any;
-    error?: string;
+    correct: boolean;
+    message: string;
 }
 
 export async function envoyerRequete(
@@ -44,49 +43,23 @@ export async function envoyerRequete(
             signal: controleurTemps.signal,
         });
 
-        // 1) Texte brut d'abord, toujours.
+        // Le texte brut EST le message, peu importe que ce soit un
+        // succès ou une erreur côté serveur.
         const texteBrut = await reponse.text();
+        const eltRessu = JSON.parse(texteBrut);
 
-        // 2) Log complet du texte brut renvoyé par le serveur (process
-        // main, pas les DevTools) — utile pour voir un éventuel warning
-        // PHP en entier, quel que soit son format (JSON valide ou non).
-        console.log(`[export] réponse brute du serveur (status ${reponse.status}) :\n${texteBrut}`);
-
-        // 3) Tentative de parsing JSON sur ce même texte.
-        let donneesReponse: any = null;
-        let erreurParsing: string | null = null;
-        try {
-            donneesReponse = JSON.parse(texteBrut);
-        } catch (err: any) {
-            erreurParsing = err?.message ?? String(err);
-        }
-
-        // Un échec de parsing JSON est une erreur MÊME SI le statut HTTP
-        // est 200 (script PHP qui laisse fuiter du HTML avant/à la place
-        // du JSON attendu) : sans ce contrôle, ce cas remonterait comme
-        // un succès silencieux (data=null, reponse.ok=true).
-        if (!reponse.ok || erreurParsing) {
-            const messageServeur = donneesReponse && (donneesReponse.message || donneesReponse.error);
-            const messageErreur = messageServeur
-                ? String(messageServeur)
-                : erreurParsing
-                    ? `Réponse du serveur non reconnue comme du JSON (${erreurParsing}). Contenu brut :\n${texteBrut}`
-                    : `Erreur HTTP ${reponse.status}`;
-
-            return {
-                success: false,
-                status: reponse.status,
-                data: donneesReponse ?? texteBrut,
-                error: messageErreur,
-            };
-        }
-
-        return { success: true, status: reponse.status, data: donneesReponse };
+        return {
+            correct: reponse.ok && (eltRessu.code == 0),
+            message: eltRessu.message,
+        };
     } catch (err: any) {
+        // Ici, aucune réponse n'a pu être obtenue du tout (timeout,
+        // pas de réseau, DNS, etc.) — on distingue ce cas avec un
+        // message dédié plutôt que le texte d'une réponse serveur.
         if (controleurTemps.signal.aborted) {
-            return { success: false, error: "Le délai d'attente est terminé" };
+            return { correct: false, message: "Le délai d'attente est terminé" };
         }
-        return { success: false, error: err?.message ?? String(err) };
+        return { correct: false, message: err?.message ?? String(err) };
     } finally {
         clearTimeout(idDelai);
     }

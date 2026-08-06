@@ -7,8 +7,10 @@ import { remplirZoneTcfEo } from './zoneAccueilTcfEo.js';
 import { remplirZoneTcfEe } from './zoneAccueilTcfEe.js';
 import { remplirZoneTcfCe } from './zoneAccueilTcfCe.js';
 import { remplirZoneOuverture } from './zoneAff.js';
+import {ouvreZoneBloquant, fermerZoneBloquant} from './zoneBloquante.js';
 import { ouvreZoneExtract } from './zoneExtract.js';
 import { ouvrirZoneParam } from './zoneParam.js';
+import { creerMessage, typeInfo } from "./gestionMessage.js";
 import { listerSeriesConserveur, TypeEpreuve } from './donneeApi.js';
 import { listerTcfCe } from './donneeTcfCeApi.js';
 import { listerTcfEe } from './donneeTcfEeApi.js';
@@ -52,10 +54,10 @@ import { ecouteDonneeTraitee } from './extractionApi.js';
 // nouvelle carte apparaît donc sans qu'il soit besoin de fermer/rouvrir
 // l'accueil.
 //
-// Le bouton de menu global (celui qui fait sortir un petit cadre avec
-// "Paramètres" et "Extraction") est posé directement sur le porteur du
-// panel (getContainer()), pas dans le body — ces deux entrées ne
-// mènent elles non plus nulle part pour l'instant.
+// Le pied de la colonne de gauche (sous les cartes TCF/TEF) porte 3
+// boutons : "Extraction", "Création" et "Paramètres" (voir
+// initPiedColonneAccueil plus bas) — Extraction et Paramètres ouvrent
+// chacun leur panel dédié, Création ne fait rien pour l'instant.
 //
 // Les compteurs des cartes TCF/TEF (dans la colonne de gauche) sont
 // calculés à partir des vraies données sur disque (voir
@@ -122,7 +124,7 @@ export const initZoneAccueil = (): void => {
         remplirPagesTef(navModerneTef, boutonsTef);
     }
 
-    initMenuAccueil(panAccueil.getContainer());
+    initPiedColonneAccueil(navCarteAccueil.getPiedColonne());
 
     // Premier calcul des compteurs, au chargement de l'accueil.
     void rafraichirCompteursAccueil();
@@ -272,10 +274,12 @@ const remplirPagesTef = (nav: NavigateurModerne, boutons: InfoBouton[]): void =>
     }
 };
 
-// Construit un item de menu : icône (Material Icons ligature) + texte.
-const creerItemMenu = (icone: string, texte: string, onClick: () => void): HTMLButtonElement => {
-    const item = document.createElement('button');
-    item.className = 'menu-accueil-item';
+// Construit un bouton du pied de colonne : icône (Material Icons
+// ligature) + texte, aligné comme les cartes au-dessus.
+const creerBoutonPied = (icone: string, texte: string, onClick: () => void): HTMLButtonElement => {
+    const bouton = document.createElement('button');
+    bouton.type = 'button';
+    bouton.className = 'cnav-pied-bouton';
 
     const iconeEl = document.createElement('span');
     iconeEl.className = 'iconMateriel';
@@ -284,47 +288,46 @@ const creerItemMenu = (icone: string, texte: string, onClick: () => void): HTMLB
     const texteEl = document.createElement('span');
     texteEl.textContent = texte;
 
-    item.append(iconeEl, texteEl);
-    item.addEventListener('click', onClick);
-    return item;
+    bouton.append(iconeEl, texteEl);
+    bouton.addEventListener('click', onClick);
+    return bouton;
 };
 
-// Bouton flottant (posé sur le porteur du panel) + petit cadre avec
-// "Paramètres" et "Extraction", qui ouvrent chacun leur panel dédié
-// (voir zoneParam.ts / zoneExtract.ts).
-const initMenuAccueil = (porteur: HTMLDivElement): void => {
-    const bouton = document.createElement('button');
-    bouton.className = 'bout-menu-accueil zone-ombre-simple zoneReacif iconMateriel';
-    bouton.textContent = 'apps';
-    bouton.title = 'Menu';
-    porteur.appendChild(bouton);
-
-    const cadre = document.createElement('div');
-    cadre.className = 'menu-accueil-cadre';
-
-    const fermerMenu = () => cadre.classList.remove('menu-accueil-cadre--visible');
-    const basculerMenu = () => cadre.classList.toggle('menu-accueil-cadre--visible');
-
-    cadre.append(
-        creerItemMenu('settings', 'Paramètres', () => {
-            fermerMenu();
-            ouvrirZoneParam();
-        }),
-        creerItemMenu('search', 'Extraction', () => {
-            fermerMenu();
-            ouvreZoneExtract();
-        }),
+// Intégration de sujets depuis des zips (voir nonExtract.ts côté
+// backend) : crée directement des dossiers de série TEF-EE / TEF-EO,
+// donc une fois l'intégration terminée on rafraîchit les mêmes choses
+// que pour une extraction classique (ecouteDonneeTraitee plus haut) —
+// compteurs des cartes TCF/TEF, et les pages TEF·EE / TEF·EO (celles
+// dont les cartes de série peuvent changer) si elles sont déjà ouvertes.
+const lancerCreation = async () => {
+    ouvreZoneBloquant("Préparation  l'integration des fichiers crées");
+    const resp = await window.api.invoke("extraction:prendre_dans_zip", null);
+    fermerZoneBloquant();
+    creerMessage(
+        typeInfo,
+        "Integration par zip",
+        resp,
+        8000
     );
-    porteur.appendChild(cadre);
 
-    bouton.addEventListener('click', (evenement) => {
-        evenement.stopPropagation();
-        basculerMenu();
-    });
-    document.addEventListener('click', (evenement) => {
-        if (evenement.target === bouton) return;
-        if (!cadre.contains(evenement.target as Node)) fermerMenu();
-    });
+    void rafraichirCompteursAccueil();
+    for (const type of ['ee', 'eo'] as TypeEpreuve[]) {
+        const page = pagesTef[type];
+        if (page) void remplirZoneTef(page, 'tef', type);
+    }
+};
+
+// Remplit le pied de colonne (sous les cartes TCF/TEF, colonne de
+// gauche) avec les 3 boutons Extraction / Création / Paramètres.
+// Extraction et Paramètres ouvrent directement leur panel dédié (voir
+// zoneExtract.ts / zoneParam.ts) ; Création ne fait rien pour le
+// moment (lancerCreation, ci-dessus).
+const initPiedColonneAccueil = (pied: HTMLDivElement): void => {
+    pied.append(
+        creerBoutonPied('search', 'Extraction', () => ouvreZoneExtract()),
+        creerBoutonPied('add_circle', 'Création', () => lancerCreation()),
+        creerBoutonPied('settings', 'Paramètres', () => ouvrirZoneParam()),
+    );
 };
 
 export const ouvrirZoneAccueil = (): void => {

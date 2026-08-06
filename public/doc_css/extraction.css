@@ -299,7 +299,9 @@
   font-size: 17px;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.05s ease;
+  opacity: 1;
+  transform: scale(1);
+  transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
 }
 
 .affichage-embed-export-btn:hover {
@@ -308,6 +310,32 @@
 
 .affichage-embed-export-btn:active {
   transform: scale(0.92);
+}
+
+/* --- Masqué tant que l'élément courant n'est pas exportable (voir
+   afficherBoutonExportZone dans boutonExportZone.ts) : disparaît puis
+   remonte en place dès que estQuestionExportable devient vrai pour
+   toutes les questions de la série ouverte. --- */
+.affichage-embed-export-btn--cache {
+  opacity: 0;
+  transform: scale(0.4);
+  pointer-events: none;
+}
+
+/* --- Message d'entête indiquant combien de questions restent à
+   corriger avant que l'exportation soit possible. Reste totalement
+   vide (rien de visible) dès que toutes les questions de la série
+   ouverte sont prêtes — voir rafraichirIndicateursExport dans
+   zoneAff.ts. --- */
+.affichage-embed-export-statut {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-danger);
 }
 
 .affichage-layout {
@@ -367,6 +395,19 @@
   background-color: var(--color-primary);
   border-color: var(--color-primary);
   color: var(--color-text-blanc);
+}
+
+/* --- Style distinctif : question dont la transformation est prête à
+   l'exportation (voir estQuestionExportable dans verificationExport.ts,
+   appliqué via rafraichirIndicateursExport dans zoneAff.ts). --- */
+.affichage-nav-btn--exportable {
+  border-color: var(--color-secondary);
+  box-shadow: inset 0 0 0 2px var(--color-secondary);
+}
+
+.affichage-nav-btn--exportable.affichage-nav-btn--active {
+  background-color: var(--color-secondary);
+  border-color: var(--color-secondary);
 }
 
 .affichage-nav-navigation {
@@ -575,4 +616,15 @@
     color: #6b7280;
     font-size: 14px;
     text-align: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* bouton pour effacer les session des cite d'extraction     */
+/* ------------------------------------------------------------------ */
+.eff_session_extract {
+  position: absolute;
+  top: 18px;
+  right: 250px;
+  font-size: 15px;
+  
 }

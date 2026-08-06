@@ -8,12 +8,12 @@ import { creerWebContentsViewDansFenetre } from './backend/creeView.js';
 import {
     initExporteur,
     PARTITION_EXPORT,
-    clearAllExportStorage,
+    clearAllPartionStorage,
     getLien,
     setOuvreVueCallback,
     ecouteConnexionExport,
 } from './backend/gestion_export.js';
-import { initExtractionDirecte, arreterTachesDeFenetre } from './backend/extractionDirecte.js';
+import { initExtractionDirecte, arreterTachesDeFenetre, PARTITION_EXTRACTION } from './backend/extractionDirecte.js';
 import { chargeRef, enregistreRef } from './backend/gardienRef.js';
 import { initialiserMiseAJour } from './backend/autoUpdate.js';
 // ---------------------------------------------------------------------
@@ -34,7 +34,16 @@ import {
     sauvegarderTransformEO as sauvegarderTransformEOConserveur,
     genererTransformationsManquantes as genererTransformationsManquantesConserveur,
     synchroniserRefsDepuisDisque,
+    supprimerSerie as supprimerSerieConserveur,
 } from './backend/conserveurDonne.js';
+// Pour rafraîchir, après suppression d'une carte TEF, l'indicateur
+// "déjà extrait" du lien correspondant dans la zone d'extraction (voir
+// 'conserveur:delete-series' plus bas et ecouteEtatItemLien côté
+// renderer, dans zoneExtract.ts) : un id de carte TEF (ce/co/ee/eo) EST
+// l'id du lien qui l'a créée (voir getCheminEnsDossierTef), donc on
+// peut vérifier directement s'il reste encore au moins un des 4
+// dossiers pour ce même id après suppression.
+import { possedeDossierTefPourLien } from './backend/gestion_ref_tef.js';
 // TCF EO passe désormais exclusivement par son propre module dédié
 // (voir donnee_tcf_eo.ts) : conserveurDonne.ts n'est pas impliqué pour
 // cette donnée-là.
@@ -42,12 +51,14 @@ import {
     listerCartesTcfEo,
     lireDonneeTcfEo,
     sauvegarderTransformeTcfEo,
+    supprimerDonneeTcfEo,
 } from './backend/donnee_tcf_eo.js';
 // TCF EE suit exactement le même principe (voir donnee_tcf_ee.ts).
 import {
     listerCartesTcfEe,
     lireDonneeTcfEe,
     sauvegarderTransformeTcfEe,
+    supprimerDonneeTcfEe,
 } from './backend/donnee_tcf_ee.js';
 // TCF CE suit lui aussi ce même principe (voir donnee_tcf_ce.ts) : un
 // dossier tcf_ce_... = une carte, transformé = copie de l'extrait dont
@@ -58,6 +69,7 @@ import {
     lireDonneeTcfCe,
     sauvegarderTransformeTcfCe,
     enregistrerImageEnonceTcfCe,
+    supprimerDonneeTcfCe,
 } from './backend/donnee_tcf_ce.js';
 // TCF CO, lui, RÉUTILISE l'affichage commun de zoneAff.ts (comme le
 // TEF) au lieu d'avoir sa propre page dédiée — seules ces 4 fonctions
@@ -68,6 +80,7 @@ import {
     lireCoupleAffichageTcfCo,
     lireTransformeAffichageTcfCo,
     sauvegarderTransformePartielTcfCo,
+    supprimerDonneeTcfCo,
 } from './backend/donnee_tcf_co.js';
 
 
@@ -79,6 +92,9 @@ let mainWindow: BrowserWindow | null = null;
 
 //view 
 
+let leView: WebContentsView | null = null;
+let arreterEcouteConnexion: (() => void) | null = null;
+
 const optionView = {
     marge: { haut: 57, droite: 0, bas: 0, gauche: 0 },
     viewOptions: {
@@ -89,25 +105,23 @@ const optionView = {
     url: getLien("connect"),
 };
 
-let leView: WebContentsView | null = null;
-let arreterEcouteConnexion: (() => void) | null = null;
-
 const ouvreView = () => {
+
     if (!leView) {
         // La vue doit toujours repartir de la page de connexion (au cas où
         // une précédente ouverture aurait navigué ailleurs) : on la
         // reconstruit avec l'URL courante à chaque ouverture.
-        optionView.url = getLien('connect');
+        optionView.url = getLien("connect");
         leView = creerWebContentsViewDansFenetre((mainWindow as BrowserWindow), optionView);
 
         // Dès que la connexion faite dans la vue aboutit (cookie posé ou
         // redirection hors de la page de connexion), on ferme la vue et on
         // prévient le renderer, qui peut alors relancer l'exportation
         // demandée initialement (nouveau clic sur "Exporter").
-        arreterEcouteConnexion = ecouteConnexionExport(leView.webContents, () => {
+        /*arreterEcouteConnexion = ecouteConnexionExport(leView.webContents, () => {
             mainWindow?.webContents.send('export:session-detectee');
             fermeView();
-        });
+        });*/
     }
 }
 
@@ -170,7 +184,7 @@ function createWindow() {
     initialiserMiseAJour(mainWindow);
 
     // Ouvrir les DevTools détachés
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    //mainWindow.webContents.openDevTools({ mode: 'detach' });
 
     mainWindow.on('closed', async () => {
         mainWindow = null;
@@ -204,6 +218,12 @@ function createWindow() {
             }
         }
     });
+
+    //pour la suppression des session des cites d'extractions
+     ipcMain.handle("lienExtract:efface_cookie", async (_event, arg) => {
+       await clearAllPartionStorage(PARTITION_EXTRACTION);
+        return true;
+     });
 
     // --- IPC : affichage de l'accueil (dossier "conserveur", voir
     // conserveurDonne.ts) — seule source de données désormais utilisée
@@ -269,6 +289,28 @@ function createWindow() {
         }
     );
 
+    ipcMain.handle(
+        'conserveur:delete-series',
+        async (_event, args: { examen?: 'tef' | 'tcf'; type: TypeEpreuve; id: string }) => {
+            if (args.examen === 'tcf' && args.type === 'co') {
+                return supprimerDonneeTcfCo(args.id);
+            }
+            const resultat = await supprimerSerieConserveur(args.type, args.id);
+
+            // La carte supprimée peut être celle d'un lien extrait (id de
+            // carte == id de lien, voir getCheminEnsDossierTef) : s'il ne
+            // reste plus AUCUN des 4 dossiers TEF (ce/co/ee/eo) pour cet
+            // id, le lien correspondant, dans la zone d'extraction, ne
+            // doit plus être marqué "déjà extrait" — voir
+            // ecouteEtatItemLien dans zoneExtract.ts.
+            if (resultat.success && !possedeDossierTefPourLien(args.id)) {
+                mainWindow?.webContents.send('extraction:item-etat', 'tef-session', args.id, false);
+            }
+
+            return resultat;
+        }
+    );
+
     // --- IPC : données TCF EO (dossier "conserveur", mais via le module
     // dédié donnee_tcf_eo.ts — un dossier = une carte, voir ce fichier) ---
 
@@ -284,6 +326,10 @@ function createWindow() {
         return sauvegarderTransformeTcfEo(args.idLien, args.parties);
     });
 
+    ipcMain.handle('tcf-eo:delete', async (_event, idLien: string) => {
+        return supprimerDonneeTcfEo(idLien);
+    });
+
     // --- IPC : données TCF EE (dossier "conserveur", mais via le module
     // dédié donnee_tcf_ee.ts — un dossier = une carte, voir ce fichier) ---
 
@@ -297,6 +343,10 @@ function createWindow() {
 
     ipcMain.handle('tcf-ee:save-transform', async (_event, args: { idLien: string; parties: any[] }) => {
         return sauvegarderTransformeTcfEe(args.idLien, args.parties);
+    });
+
+    ipcMain.handle('tcf-ee:delete', async (_event, idLien: string) => {
+        return supprimerDonneeTcfEe(idLien);
     });
 
     // --- IPC : données TCF CE (dossier "conserveur", mais via le module
@@ -320,6 +370,10 @@ function createWindow() {
             return enregistrerImageEnonceTcfCe(args.idLien, args.indexQuestion, args.donneeBase64, args.extension);
         }
     );
+
+    ipcMain.handle('tcf-ce:delete', async (_event, idLien: string) => {
+        return supprimerDonneeTcfCe(idLien);
+    });
 
 }
 
@@ -368,7 +422,7 @@ if (!gotTheLock) {
         if (mainWindow) {
             arreterTachesDeFenetre(mainWindow);
         }
-        await clearAllExportStorage();
+        await clearAllPartionStorage();
     });
 }
 /*

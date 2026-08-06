@@ -7,6 +7,10 @@ import { getRef, genereId } from './gardienRef.js';
 export interface NomLienExtrait {
   id: string;
   nom: string;
+  // Vrai si ce lien possède déjà un dossier de donnée associé (voir
+  // possedeDonnee dans outi_exract.ts) — ajouté par extractionDirecte.ts
+  // / outi_exract.ts avant l'envoi au renderer, absent ici à la source.
+  aDossier?: boolean;
 }
 
 export interface LienBrute {

@@ -84,6 +84,42 @@ async function existeChemin(cible: string): Promise<boolean> {
 // ---------------------------------------------------------------------
 
 /** Liste toutes les cartes (une par dossier tcf_eo déjà enregistré). */
+/** Vrai si CE lien précis possède déjà un dossier de donnée TCF EO. */
+export function possedeDonneeTcfEo(idLien: string): boolean {
+    chargeRef();
+    return !!getRef(racineChemin)[idLien];
+}
+
+/**
+ * Supprime définitivement une carte TCF EO : le dossier sur disque
+ * (extrait, transformé, images) ET sa référence. Utilisé par le bouton
+ * de suppression de la carte (zoneAccueilTcfEo.ts).
+ */
+export async function supprimerDonneeTcfEo(
+    idLien: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        chargeRef();
+        const dataChemin = getRef(racineChemin);
+        const dataNom = getRef(racineNom);
+        const dossier = dataChemin[idLien];
+        if (!dossier) return { success: false, error: 'Donnée introuvable' };
+
+        const cheminDossier = path.join(dossierConserveur, dossier);
+        if (await existeChemin(cheminDossier)) {
+            await fsp.rm(cheminDossier, { recursive: true, force: true });
+        }
+
+        delete dataChemin[idLien];
+        delete dataNom[idLien];
+        enregistreRef();
+
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+    }
+}
+
 export function listerCartesTcfEo(): CarteTcfEo[] {
     chargeRef();
     const dataChemin = getRef(racineChemin);

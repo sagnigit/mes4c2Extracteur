@@ -64,3 +64,10 @@ export const enregistrerImageEnonceTcfCe = (
 ): Promise<{ success: boolean; cheminRelatif?: string; cheminAbsolu?: string; error?: string }> => {
     return window.api.invoke('tcf-ce:save-image', { idLien, indexQuestion, donneeBase64, extension });
 };
+
+/** Supprime définitivement une carte TCF CE (dossier + référence). */
+export const supprimerTcfCe = (
+    idLien: string
+): Promise<{ success: boolean; error?: string }> => {
+    return window.api.invoke('tcf-ce:delete', idLien);
+};

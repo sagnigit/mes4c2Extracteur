@@ -28,8 +28,3 @@ export const organise = () => {
     initEcouteMajCodesExtraction();
     ouvrirZoneAccueil();
 }
-
-/*
-http://172.30.133.130/login/
-http://172.30.133.130/auth/saveAll2.php
-*/

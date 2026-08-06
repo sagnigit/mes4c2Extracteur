@@ -216,6 +216,35 @@ export function supprimerRefSerie(
     return getNomSeries(type);
 }
 
+/**
+ * Supprime définitivement une série TEF : le dossier sur disque (JSON
+ * extrait/transformé + médias) ET sa référence (voir supprimerRefSerie
+ * ci-dessus). Utilisé par le bouton de suppression des cartes de série
+ * (zoneAccueilTef.ts), pour CE/CO/EE/EO du TEF comme du TCF (le TCF·CO
+ * réutilise ce même système de dossiers, voir conserveur:delete-series
+ * dans main.ts).
+ */
+export async function supprimerSerie(
+    type: TypeEpreuve,
+    id: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        chargeRef();
+        const dossier = getDossierSerie(type, id);
+        if (!dossier) return { success: false, error: 'Série introuvable' };
+
+        const serieDir = cheminDossierSerie(dossier);
+        if (await existeChemin(serieDir)) {
+            await fsp.rm(serieDir, { recursive: true, force: true });
+        }
+
+        supprimerRefSerie(type, id);
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Médias
 // ---------------------------------------------------------------------------
@@ -409,6 +438,21 @@ export async function genererTransformEO(serieDir: string): Promise<void> {
     const parse = JSON.parse(contenu);
     const donnees: any[] = Array.isArray(parse) ? parse : [parse];
 
+    // Transform existant (s'il y en a déjà un) : une description déjà
+    // présente (génération précédente, ou correction manuelle depuis
+    // l'interface) n'est JAMAIS écrasée par "description"/"explication"
+    // de l'extrait — seul un champ encore vide est complété. "image" et
+    // "consigne" restent, eux, toujours régénérés depuis l'extrait.
+    const cheminTrans = getTransJsonPath(serieDir, 'eo');
+    let precedent: any = {};
+    if (await existeChemin(cheminTrans)) {
+        try {
+            precedent = JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'));
+        } catch {
+            precedent = {};
+        }
+    }
+
     const resultat: any = {
         A: { image: '', consigne: '', description: '' },
         B: { image: '', consigne: '', description: '' },
@@ -437,17 +481,31 @@ export async function genererTransformEO(serieDir: string): Promise<void> {
             `eo_${lettre}`
         );
 
+        const descriptionPrecedente =
+            typeof precedent?.[lettre]?.description === 'string'
+                ? precedent[lettre].description.trim()
+                : '';
+        // Texte descriptif de l'image : accepte "description" ou
+        // "explication" (nom utilisé par les sujets EO intégrés depuis
+        // un zip, voir nonExtract.ts) — absent pour une extraction web
+        // classique.
+        const descriptionSource = stripHtmlBasique(
+            typeof item.description === 'string'
+                ? item.description
+                : (typeof item.explication === 'string' ? item.explication : '')
+        );
+
         resultat[lettre] = {
             image: imageRel,
             consigne: stripHtmlBasique(
                 typeof item.consigne === 'string' ? item.consigne : ''
             ),
-            description: '',
+            description: descriptionPrecedente !== '' ? descriptionPrecedente : descriptionSource,
         };
     }
 
     await fsp.writeFile(
-        getTransJsonPath(serieDir, 'eo'),
+        cheminTrans,
         JSON.stringify(resultat, null, 2),
         'utf-8'
     );

@@ -21,12 +21,14 @@
 // lireTransforme) a été retirée : elle n'était plus utilisée nulle part.
 import { construireCorpsPage } from '../composer/corpsPage.js';
 import { Selecteur } from '../generale/selecteur.js';
+import { creerBoutonSupprimerCarte } from '../generale/carteSuppression.js';
 import { remplirZoneOuverture } from './zoneAff.js';
 import {
     ElementDonnee,
     lireCoupleConserveur,
     lireTransformeConserveur,
     listerSeriesConserveur,
+    supprimerSerieConserveur,
     NomSerieExtrait,
     TypeEpreuve,
     TypeExamen,
@@ -95,12 +97,20 @@ export const remplirZoneTef = async (
         // listerSeriesConserveur() renvoie déjà les séries triées
         // naturellement (par nom) de façon croissante : on se contente
         // d'inverser pour les afficher en ordre décroissant.
+        //
+        // ouvrirPremiereCarte retient le déclenchement (mêmes actions que
+        // le clic) de la toute première carte affichée, pour l'ouvrir
+        // automatiquement une fois la liste construite (voir plus bas) :
+        // dès qu'il y a au moins une carte, une carte reste toujours
+        // ouverte au centre plutôt que le message "Sélectionnez...".
+        let ouvrirPremiereCarte: (() => void) | null = null;
+
         for (const serie of [...series].reverse()) {
             const resultat = await lireCoupleConserveur(examen, type, serie.id);
             const donnees = resultat.success ? (resultat.extrait ?? []) : [];
             const transforme = resultat.success ? resultat.transforme : undefined;
 
-            const carte = creerCarteElement(serie, donnees, transforme, () => {
+            const ouvrirCarte = () => {
                 selecteurCartes.selectUnique(carte);
                 void instanceAffichage.afficherDonnees(
                     `${serie.nom} — ${NOM_TYPE_AFFICHE[type]}`,
@@ -109,9 +119,17 @@ export const remplirZoneTef = async (
                     type,
                     donnees
                 );
-            });
+            };
+            const carte = creerCarteElement(serie, donnees, transforme, ouvrirCarte, () =>
+                void remplirZoneTef(page, examen, type)
+            );
             listeCartes.addItem(carte);
+
+            if (!ouvrirPremiereCarte) ouvrirPremiereCarte = ouvrirCarte;
         }
+
+        // Ouvre par défaut la première carte, s'il y en a au moins une.
+        ouvrirPremiereCarte?.();
     } catch {
         listeCartes.setEmptyMessage('Erreur lors du chargement des séries.');
     }
@@ -122,7 +140,8 @@ const creerCarteElement = (
     serie: NomSerieExtrait,
     donnees: ElementDonnee[],
     transforme: any,
-    onClick: () => void
+    onClick: () => void,
+    onSupprime: () => void
 ): HTMLDivElement => {
     const { type } = serie;
     const carte = document.createElement('div');
@@ -141,7 +160,13 @@ const creerCarteElement = (
     titre.textContent = serie.nom;
     titre.title = serie.nom;
 
-    entete.append(badge, titre);
+    const boutonSuppr = creerBoutonSupprimerCarte(
+        serie.nom,
+        () => supprimerSerieConserveur(serie.examen, type, serie.id),
+        onSupprime
+    );
+
+    entete.append(badge, titre, boutonSuppr);
     carte.appendChild(entete);
 
     const zoneStats = document.createElement('div');

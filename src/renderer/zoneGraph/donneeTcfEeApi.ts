@@ -38,3 +38,10 @@ export const sauvegarderTransformeTcfEe = (
 ): Promise<{ success: boolean; error?: string }> => {
     return window.api.invoke('tcf-ee:save-transform', { idLien, parties });
 };
+
+/** Supprime définitivement une carte TCF EE (dossier + référence). */
+export const supprimerTcfEe = (
+    idLien: string
+): Promise<{ success: boolean; error?: string }> => {
+    return window.api.invoke('tcf-ee:delete', idLien);
+};

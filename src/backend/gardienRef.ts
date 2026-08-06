@@ -1,8 +1,8 @@
 import path from 'path';
-import {app} from "electron";
+import { app } from "electron";
 import fs from 'fs'; // Pour lire et écrire des fichiers
 import {
-    compteurs, 
+    compteurs,
     listeIdActu
 } from '../varUni.js';
 
@@ -11,15 +11,39 @@ export interface DictString {
 }
 
 interface DictRef {
-    [key:string]: DictString
+    [key: string]: DictString
 }
 
-export const creer_dossier= (cheminDossier: string)=> {
+export const creer_dossier = (cheminDossier: string) => {
     if (!fs.existsSync(cheminDossier)) {
         // Créer le répertoire
         fs.mkdirSync(cheminDossier, { recursive: true });
-    } 
+        return false;
+    }
+    return true;
 }
+
+export const viderDossier = (dossier: string) => {
+    if (!fs.existsSync(dossier)) {
+        return false;
+    }
+
+    const fichiers = fs.readdirSync(dossier);
+
+    for (const fichier of fichiers) {
+        const cheminComplet = path.join(dossier, fichier);
+        const stats = fs.statSync(cheminComplet);
+
+        if (stats.isDirectory()) {
+            viderDossier(cheminComplet);
+            fs.rmdirSync(cheminComplet);
+        } else {
+            fs.unlinkSync(cheminComplet);
+        }
+    }
+    return true;
+};
+
 
 const dossierAcesible = app.getPath('userData');//dans lequel on peut lire et ecrire meme lorsque l'appplication est installer
 export const dossierConserveur = path.join(dossierAcesible, "conserveur");
@@ -43,13 +67,13 @@ export const chargeRef = () => {
     dejaCharge = true;
 
     creer_dossier(dossierConserveur);
-    if(fs.existsSync(fichierRef)){
+    if (fs.existsSync(fichierRef)) {
         const valeurBrute = fs.readFileSync(fichierRef, "utf-8");
         dataRef = JSON.parse(valeurBrute);
     }
-    else{
+    else {
         const comp: DictString = {};
-        dataRef[compteurs]= comp;
+        dataRef[compteurs] = comp;
         ([
             ...listeIdActu
         ] as string[]).forEach(cleCompteur => {
@@ -58,14 +82,15 @@ export const chargeRef = () => {
     }
 }
 
-export const enregistreRef = () =>{
+export const enregistreRef = () => {
     fs.writeFileSync(fichierRef, JSON.stringify(dataRef));
 }
 
 export const genereId = (ref: string): string => {
     const strComp = dataRef[compteurs][ref];
-    if(!strComp){
-        return "";
+    if (!strComp) {
+        dataRef[compteurs][ref] = "1";
+        return "1";
     }
     const novCompt = `${parseInt(strComp) + 1}`;
     dataRef[compteurs][ref] = novCompt;
@@ -74,7 +99,7 @@ export const genereId = (ref: string): string => {
 
 export const getRef = (idRef: string): DictString => {
     let valeur = dataRef[idRef];
-    if(!valeur){
+    if (!valeur) {
         valeur = {};
         dataRef[idRef] = valeur;
     }

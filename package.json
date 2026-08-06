@@ -1,6 +1,6 @@
 {
-  "name": "mes4C2-extracteur",
-  "version": "1.0.0",
+  "name": "Mes4C2Extracteur",
+  "version": "1.1.0",
   "description": "bien",
   "main": "dist/main.js",
   "type": "module",
@@ -12,6 +12,8 @@
     "dist": "npm run build && electron-builder --publish=always"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^20.14.0",
     "@types/node-fetch": "^2.6.13",
     "electron": "^36.4.0",
@@ -21,17 +23,21 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "abort-controller": "^3.0.0",
+    "adm-zip": "^0.6.0",
     "dotenv": "^17.4.2",
     "electron-updater": "^6.8.9",
     "html-to-image": "^1.11.13",
+    "jsdom": "^29.1.1",
     "node-fetch": "^3.3.2",
-    "p-limit": "^7.3.0"
+    "p-limit": "^7.3.0",
+    "sharp": "^0.35.3",
+    "tesseract.js": "^7.0.0"
   },
   "author": "",
   "license": "ISC",
   "build": {
-    "appId": "com.tonorganisation.tcf-composer",
-    "productName": "TCF Composer",
+    "appId": "com.tonorganisation.Mes4C2Extracteur",
+    "productName": "Mes4C2Extracteur",
     "files": [
       "dist/**/*",
       "public/**/*",
@@ -48,7 +54,8 @@
       }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "public/assets/logo.ico"
     },
     "mac": {
       "target": "dmg"

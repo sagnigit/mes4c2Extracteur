@@ -16,7 +16,7 @@
 //    existe sur disque sans référence connue (ex. gardienReference.json
 //    perdu/effacé) — l'id de référence est alors le nom du dossier
 //    lui-même (déjà unique par construction).
-import { getRef } from './gardienRef.js';
+import { getRef, enregistreRef } from './gardienRef.js';
 
 export type TypeTef = 'ce' | 'co' | 'ee' | 'eo';
 
@@ -115,10 +115,33 @@ export const getDossierParId = (type: TypeTef, id: string): string => {
     return getRef(cheminKeys[type])[id] ?? '';
 };
 
+/**
+ * Vrai si un lien possède déjà un dossier, pour au moins un des 4
+ * types TEF (ce/co/ee/eo).
+ *
+ * getCheminEnsDossierTef (SEUL endroit qui écrit dans refChemin pour le
+ * flux normal) le montre bien : `refChemin[idLien] = "tef_<type>_..."`.
+ * La CLÉ de refChemin est donc exactement idLien, rien d'autre à
+ * deviner ou approcher — refChemin[idLien] donne directement le nom de
+ * dossier (utile pour le CHEMIN d'accès aux données de la carte), et
+ * refNom[idLien] donne le nom affichable (utile pour le TITRE de la
+ * carte, voir getRefType plus haut) : les deux sont indexés par ce
+ * même idLien. Vérifier la présence d'un dossier pour idLien, c'est donc
+ * juste vérifier que cette clé exacte existe — pas de comparaison
+ * approchée (substring, suffixe...) qui risquerait de faire
+ * correspondre le dossier d'un AUTRE lien ou d'un sujet intégré par zip.
+ */
+export const possedeDossierTefPourLien = (idLien: string): boolean => {
+    return (['ce', 'co', 'ee', 'eo'] as const).some((type) =>
+        Object.prototype.hasOwnProperty.call(getRef(cheminKeys[type]), idLien)
+    );
+};
+
 /** Retire la référence d'un id précis (dossier laissé tel quel sur disque). */
 export const supprimerRef = (type: TypeTef, id: string): void => {
     delete getRef(cheminKeys[type])[id];
     delete getRef(nomKeys[type])[id];
+    enregistreRef();
 };
 
 /**

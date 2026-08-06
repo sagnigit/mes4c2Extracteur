@@ -22,8 +22,10 @@ import {
     definirNotifieurDonneeTraitee,
     definirNotifieurProgressionDonnee,
     mettreAJourCodesExtraction,
+    possedeDonnee,
 } from './outi_exract.js';
 import { getLien, getNomLien } from './conserveLien.js';
+import { integrerSujet } from './nonExtract.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -576,7 +578,14 @@ export function initExtractionDirecte(fenetre: BrowserWindow): void {
     // par zoneExtract.ts à l'initialisation de chaque page, pour
     // afficher tout de suite ce qui a déjà été extrait précédemment).
     ipcMain.handle('extraction:listerLiens', async (_event, idActu: string) => {
-        return getNomLien(idActu);
+        // Enrichit chaque lien avec `aDossier` : vrai si ce lien a déjà
+        // un dossier de donnée associé (voir possedeDonnee dans
+        // outi_exract.ts), pour permettre à zoneExtract.ts de distinguer
+        // visuellement les liens déjà traités des autres.
+        return getNomLien(idActu).map((lien) => ({
+            ...lien,
+            aDossier: possedeDonnee(idActu, lien.id),
+        }));
     });
 
     // "Actualiser liste" (voir ActualisableList dans zoneExtract.ts) :
@@ -623,4 +632,9 @@ export function initExtractionDirecte(fenetre: BrowserWindow): void {
             });
         }
     );
+
+    //initialmisation des la recuperation des elemnt du zip
+    ipcMain.handle("extraction:prendre_dans_zip", async (_evnt, arg = null) => {
+        return integrerSujet((message) => fenetre.webContents.send("message-overlay", message));
+    });
 }

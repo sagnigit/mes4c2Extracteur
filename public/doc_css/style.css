@@ -1013,6 +1013,25 @@ l'en-tête déclenche l'actualisation de la liste)
   outline-offset: 2px;
 }
 
+/* Lien déjà extrait : un dossier de donnée existe déjà pour lui
+   (voir aDossier, extractionApi.ts / zoneExtract.ts) — bordure et fond
+   légèrement teintés pour le distinguer d'un simple coup d'œil des
+   liens jamais traités. */
+.al-item.al-item--deja-traite {
+  background: #eefaf1;
+  border-color: #86d9a0;
+}
+
+.al-item.al-item--deja-traite:hover {
+  background: #e2f6e8;
+  border-color: #5fca82;
+}
+
+.al-item.al-item--deja-traite:active {
+  background: #d3f0dc;
+  border-color: #4cb873;
+}
+
 /* Icône d'actualisation sur chaque item */
 .al-item-icone {
   flex: 0 0 auto;

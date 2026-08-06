@@ -23,9 +23,11 @@
 // directement par question plutôt que par partie.
 import { construireCorpsPage, afficherMessageZone } from '../composer/corpsPage.js';
 import { Selecteur } from '../generale/selecteur.js';
+import { creerBoutonSupprimerCarte } from '../generale/carteSuppression.js';
 import { creerMessage, typeErreur } from './gestionMessage.js';
 import { ouvrirPopupTransformationImage } from '../composer/EditableImagePopup.js';
-import { creerBoutonExportZone } from './boutonExportZone.js';
+import { creerBoutonExportZone, afficherBoutonExportZone } from './boutonExportZone.js';
+import { estQuestionExportable } from './verificationExport.js';
 import { construireSectionStats, calculerStatsExtraitTcfCe, calculerStatsTransformeTcfCe } from './statsElement.js';
 import {
     CarteTcfCe,
@@ -34,6 +36,7 @@ import {
     lireTcfCe,
     sauvegarderTransformeTcfCe,
     enregistrerImageEnonceTcfCe,
+    supprimerTcfCe,
 } from './donneeTcfCeApi.js';
 
 /**
@@ -58,17 +61,32 @@ export const remplirZoneTcfCe = async (page: HTMLDivElement): Promise<void> => {
         const cartes = await listerTcfCe();
         listeCartes.setEmptyMessage('Aucune donnée CE extraite pour le moment.');
 
+        // ouvrirPremiereCarte retient le déclenchement (mêmes actions que
+        // le clic) de la toute première carte affichée, pour l'ouvrir
+        // automatiquement une fois la liste construite (voir plus bas) :
+        // dès qu'il y a au moins une carte, une carte reste toujours
+        // ouverte au centre plutôt que le message "Sélectionnez...".
+        let ouvrirPremiereCarte: (() => void) | null = null;
+
         for (const infoCarte of cartes) {
             const resultat = await lireTcfCe(infoCarte.id);
             const extrait = resultat.success ? (resultat.extrait ?? []) : [];
             const transforme = resultat.success ? (resultat.transforme ?? extrait) : null;
 
-            const carte = creerCarteTcfCe(infoCarte, extrait, transforme, () => {
+            const ouvrirCarte = () => {
                 selecteurCartes.selectUnique(carte);
                 void afficherContenuTcfCe(zoneAffichage, infoCarte);
-            });
+            };
+            const carte = creerCarteTcfCe(infoCarte, extrait, transforme, ouvrirCarte, () =>
+                void remplirZoneTcfCe(page)
+            );
             listeCartes.addItem(carte);
+
+            if (!ouvrirPremiereCarte) ouvrirPremiereCarte = ouvrirCarte;
         }
+
+        // Ouvre par défaut la première carte, s'il y en a au moins une.
+        ouvrirPremiereCarte?.();
     } catch {
         listeCartes.setEmptyMessage('Erreur lors du chargement des données CE.');
     }
@@ -91,7 +109,8 @@ const creerCarteTcfCe = (
     infoCarte: CarteTcfCe,
     extrait: QuestionCE[],
     transforme: QuestionCE[] | null,
-    onClick: () => void
+    onClick: () => void,
+    onSupprime: () => void
 ): HTMLDivElement => {
     const carte = document.createElement('div');
     carte.className = 'nm-carte-elt nm-carte-elt--ce';
@@ -109,7 +128,13 @@ const creerCarteTcfCe = (
     titre.textContent = infoCarte.nom;
     titre.title = infoCarte.nom;
 
-    entete.append(badge, titre);
+    const boutonSuppr = creerBoutonSupprimerCarte(
+        infoCarte.nom,
+        () => supprimerTcfCe(infoCarte.id),
+        onSupprime
+    );
+
+    entete.append(badge, titre, boutonSuppr);
     carte.appendChild(entete);
 
     const zoneStats = document.createElement('div');
@@ -177,6 +202,7 @@ const afficherContenuTcfCe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
         void sauvegarderTransformeTcfCe(infoCarte.id, etatTransforme).then((res) => {
             if (!res.success) creerMessage(typeErreur, infoCarte.nom, res.error ?? "Échec de l'enregistrement.");
         });
+        rafraichirIndicateursExport();
     };
 
     // --- Construction de la zone (entête + navigation + contenu) ---
@@ -193,7 +219,17 @@ const afficherContenuTcfCe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
     enteteTitre.textContent = `${infoCarte.nom} — CE`;
     enteteEmbed.appendChild(enteteTitre);
 
-    enteteEmbed.appendChild(creerBoutonExportZone('tcf-ce', () => infoCarte.id));
+    // Indicateur d'exportabilité : reste vide tant que toutes les
+    // questions ne sont pas prêtes à l'exportation, sinon affiche
+    // combien il en reste à corriger (voir rafraichirIndicateursExport
+    // plus bas, appelée à l'ouverture et à chaque modification d'un
+    // bloc transformé, via enregistrer()).
+    const zoneExportStatut = document.createElement('span');
+    zoneExportStatut.className = 'affichage-embed-export-statut';
+    enteteEmbed.appendChild(zoneExportStatut);
+
+    const boutonExport = creerBoutonExportZone('tcf-ce', () => infoCarte.id);
+    enteteEmbed.appendChild(boutonExport);
 
     racine.appendChild(enteteEmbed);
 
@@ -234,6 +270,32 @@ const afficherContenuTcfCe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
     let indexCourant = 0;
     let boutonsNav: HTMLButtonElement[] = [];
 
+    // Recalcule, pour CHAQUE question de la carte ouverte, son état
+    // "prête à l'exportation" (voir estQuestionExportable dans
+    // verificationExport.ts), puis met à jour le style distinctif du
+    // bouton numéroté correspondant ainsi que le message d'entête
+    // (rien ne s'affiche dès que tout est prêt).
+    const rafraichirIndicateursExport = (): void => {
+        let nombreNonPrets = 0;
+        extrait.forEach((questionExtrait, index) => {
+            const pret = estQuestionExportable('tcf-ce', questionExtrait, etatTransforme[index]);
+            if (!pret) nombreNonPrets++;
+            boutonsNav[index]?.classList.toggle('affichage-nav-btn--exportable', pret);
+        });
+
+        afficherBoutonExportZone(boutonExport, extrait.length > 0 && nombreNonPrets === 0);
+
+        if (extrait.length === 0 || nombreNonPrets === 0) {
+            zoneExportStatut.textContent = '';
+            zoneExportStatut.classList.remove('affichage-embed-export-statut--visible');
+        } else {
+            zoneExportStatut.textContent = nombreNonPrets === 1
+                ? '1 question à corriger avant l’exportation'
+                : `${nombreNonPrets} questions à corriger avant l’exportation`;
+            zoneExportStatut.classList.add('affichage-embed-export-statut--visible');
+        }
+    };
+
     const selectionnerIndex = (index: number): void => {
         if (index < 0 || index >= extrait.length) return;
         indexCourant = index;
@@ -255,21 +317,22 @@ const afficherContenuTcfCe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
         zoneContenu.appendChild(entete);
 
         zoneContenu.appendChild(
-            construireBlocEnonce(questionExtrait.enonce ?? '', questionTrans, index, infoCarte.id)
+            construireBlocEnonce(questionExtrait.enonce ?? '', questionTrans, index, infoCarte.id, rafraichirIndicateursExport)
         );
         zoneContenu.appendChild(
-            construireBlocPoints(questionExtrait.points ?? 0, questionTrans, enregistrer)
+            construireBlocPoints(questionExtrait.points ?? 0, questionTrans, enregistrer, rafraichirIndicateursExport)
         );
         zoneContenu.appendChild(
             construireBlocPropositions(
                 questionExtrait.options ?? [],
                 questionExtrait.correctAnswerIndex,
                 questionTrans,
-                enregistrer
+                enregistrer,
+                rafraichirIndicateursExport
             )
         );
         zoneContenu.appendChild(
-            construireBlocQuestion(questionExtrait.question ?? '', questionTrans, enregistrer)
+            construireBlocQuestion(questionExtrait.question ?? '', questionTrans, enregistrer, rafraichirIndicateursExport)
         );
 
         indicateurPosition.textContent = `${index + 1} / ${extrait.length}`;
@@ -290,6 +353,7 @@ const afficherContenuTcfCe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
         return btn;
     });
 
+    rafraichirIndicateursExport();
     selectionnerIndex(0);
 };
 
@@ -301,7 +365,8 @@ const construireBlocEnonce = (
     extraitTexte: string,
     question: QuestionCE,
     index: number,
-    idLien: string
+    idLien: string,
+    notifierModification: () => void
 ): HTMLDivElement => {
     const carte = document.createElement('div');
     carte.className = 'zed-zone';
@@ -402,6 +467,7 @@ const construireBlocEnonce = (
                         question.enonce = resultatEnregistrement.cheminRelatif ?? question.enonce;
                         question._localEnonceImage = resultatEnregistrement.cheminAbsolu ?? urlImage;
                         rendreTrans();
+                        notifierModification();
                         definirStatut('ok');
                     } catch {
                         definirStatut('erreur');
@@ -422,7 +488,8 @@ const construireBlocEnonce = (
 const construireBlocPoints = (
     pointsExtrait: number,
     question: QuestionCE,
-    enregistrer: () => void
+    enregistrer: () => void,
+    notifierModification: () => void
 ): HTMLDivElement => {
     const carte = document.createElement('div');
     carte.className = 'zed-zone';
@@ -477,6 +544,7 @@ const construireBlocPoints = (
     zoneTransContenu.appendChild(champPoints);
     colTrans.appendChild(zoneTransContenu);
 
+    champPoints.addEventListener('input', () => notifierModification());
     champPoints.addEventListener('blur', () => {
         const valeur = Number(champPoints.value);
         question.points = Number.isFinite(valeur) ? valeur : 0;
@@ -508,7 +576,8 @@ const construireBlocPropositions = (
     optionsExtrait: string[],
     correctIndexExtrait: number,
     question: QuestionCE,
-    enregistrer: () => void
+    enregistrer: () => void,
+    notifierModification: () => void
 ): HTMLDivElement => {
     const carte = document.createElement('div');
     carte.className = 'zed-zone';
@@ -617,6 +686,7 @@ const construireBlocPropositions = (
             champ.placeholder = 'Proposition...';
             champ.addEventListener('input', () => {
                 optionsCourantes[i] = champ.value;
+                notifierModification();
             });
             champ.addEventListener('blur', () => enregistrerListe());
 
@@ -670,7 +740,8 @@ const construireBlocPropositions = (
 const construireBlocQuestion = (
     questionExtrait: string,
     question: QuestionCE,
-    enregistrer: () => void
+    enregistrer: () => void,
+    notifierModification: () => void
 ): HTMLDivElement => {
     const carte = document.createElement('div');
     carte.className = 'zed-zone';
@@ -740,6 +811,7 @@ const construireBlocQuestion = (
     zoneTexte.addEventListener('input', () => {
         question.question = zoneTexte.value;
         ajusterHauteur();
+        notifierModification();
     });
     requestAnimationFrame(ajusterHauteur);
 

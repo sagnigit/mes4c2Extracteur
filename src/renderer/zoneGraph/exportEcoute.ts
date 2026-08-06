@@ -71,7 +71,6 @@ export const initEcouteExport = () => {
  * à vous de brancher ici l'exportation réelle.
  */
 export const demanderExport = (cible: CibleExport): void => {
-    console.log(cible.id);
-    /*ouvreZoneBloquant("Préparation à l'exportation ...");
-    window.api.send('export-ecoute:lancer', cible);*/
+    ouvreZoneBloquant("Préparation à l'exportation ...");
+    window.api.send('export-ecoute:lancer', cible);
 };
