@@ -318,10 +318,14 @@ const lancerCreation = async () => {
 };
 
 // Remplit le pied de colonne (sous les cartes TCF/TEF, colonne de
-// gauche) avec les 3 boutons Extraction / Création / Paramètres.
+// gauche) avec les boutons Extraction / Création / Paramètres.
 // Extraction et Paramètres ouvrent directement leur panel dédié (voir
 // zoneExtract.ts / zoneParam.ts) ; Création ne fait rien pour le
 // moment (lancerCreation, ci-dessus).
+// L'action groupée n'est plus pilotée d'ici : chaque page CE/CO/EE/EO
+// porte désormais son propre bouton (voir construireCorpsPage, dans
+// corpsPage.ts), qui ouvre/referme sa propre zone de sélection groupée
+// sans affecter les autres pages.
 const initPiedColonneAccueil = (pied: HTMLDivElement): void => {
     pied.append(
         creerBoutonPied('search', 'Extraction', () => ouvreZoneExtract()),

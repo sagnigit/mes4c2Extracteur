@@ -16,12 +16,12 @@
 // TCF). Le transformé (trans_eo.json) est ici un tableau parallèle à
 // l'extrait, une entrée par partie, avec tache2/tache3 sous forme de
 // texte libre (un paragraphe par ligne vide, comme pour l'extrait).
-import { construireCorpsPage, afficherMessageZone } from '../composer/corpsPage.js';
+import { construireCorpsPage, afficherMessageZone, enregistrerActionsCarte } from '../composer/corpsPage.js';
 import { Selecteur } from '../generale/selecteur.js';
 import { creerBoutonSupprimerCarte } from '../generale/carteSuppression.js';
 import { creerMessage, typeErreur } from './gestionMessage.js';
 import { creerBoutonExportZone, afficherBoutonExportZone } from './boutonExportZone.js';
-import { estQuestionExportable } from './verificationExport.js';
+import { estQuestionExportable, estSerieTcfEoExportable } from './verificationExport.js';
 import { construireSectionStats, calculerStatsExtraitTcfEeEo, calculerStatsTransformeTcfEeEo } from './statsElement.js';
 import {
     CarteTcfEo,
@@ -88,10 +88,18 @@ export const remplirZoneTcfEo = async (page: HTMLDivElement): Promise<void> => {
 // Pour retrouver, après une sauvegarde, la section "Transformé" d'une
 // carte déjà construite, afin de rafraîchir ses stats sans tout
 // reconstruire — même principe que cartesSuivies dans
-// zoneAccueilTef.ts. Clé : l'id de la carte (infoCarte.id).
+// zoneAccueilTef.ts. Sert aussi à remettre à jour le badge
+// "exportable" (voir enregistrerActionsCarte plus bas) sans
+// reconstruire la carte. Clé : l'id de la carte (infoCarte.id).
 interface CarteTcfEoSuivie {
+    carte: HTMLDivElement;
     zoneStats: HTMLDivElement;
     sectionTrans: HTMLDivElement;
+    extrait: PartieEO[];
+    infoCarte: CarteTcfEo;
+    nom: string;
+    supprimer: () => Promise<{ success: boolean; error?: string }>;
+    rafraichirPage: () => void;
 }
 const cartesTcfEoSuivies = new Map<string, CarteTcfEoSuivie>();
 
@@ -121,11 +129,8 @@ const creerCarteTcfEo = (
     titre.textContent = infoCarte.nom;
     titre.title = infoCarte.nom;
 
-    const boutonSuppr = creerBoutonSupprimerCarte(
-        infoCarte.nom,
-        () => supprimerTcfEo(infoCarte.id),
-        onSupprime
-    );
+    const supprimerCarte = () => supprimerTcfEo(infoCarte.id);
+    const boutonSuppr = creerBoutonSupprimerCarte(infoCarte.nom, supprimerCarte, onSupprime);
 
     entete.append(badge, titre, boutonSuppr);
     carte.appendChild(entete);
@@ -138,14 +143,44 @@ const creerCarteTcfEo = (
     zoneStats.append(sectionExtrait, sectionTrans);
     carte.appendChild(zoneStats);
 
-    cartesTcfEoSuivies.set(infoCarte.id, { zoneStats, sectionTrans });
+    cartesTcfEoSuivies.set(infoCarte.id, {
+        carte,
+        zoneStats,
+        sectionTrans,
+        extrait,
+        infoCarte,
+        nom: infoCarte.nom,
+        supprimer: supprimerCarte,
+        rafraichirPage: onSupprime,
+    });
+
+    // Actions réelles de cette carte, utilisées par la sélection
+    // groupée (voir corpsPage.ts). Le badge "exportable" ne doit
+    // apparaître que si le dossier est réellement prêt à l'exportation
+    // dès maintenant (estSerieTcfEoExportable, verificationExport.ts —
+    // mêmes règles que le bouton d'export de la zone d'affichage).
+    const exportableEo = estSerieTcfEoExportable(extrait, transforme);
+    enregistrerActionsCarte(carte, {
+        nom: infoCarte.nom,
+        supprimer: supprimerCarte,
+        rafraichirPage: onSupprime,
+        cibleExport: exportableEo ? { zone: 'tcf-eo', id: infoCarte.id } : undefined,
+        // Identité fixe (zone + id) de cette carte : utilisée par la
+        // sélection groupée pour vérifier son exportabilité auprès du
+        // backend, EN UNE SEULE requête pour toutes les cartes listées
+        // (voir verifierEtIndexerCartes dans corpsPage.ts, et
+        // verificationExportSujet.ts côté backend).
+        cibleVerification: { zone: 'tcf-eo', id: infoCarte.id },
+    });
 
     return carte;
 };
 
 // Rafraîchit la section "Transformé" d'une carte déjà construite, juste
 // après une sauvegarde (voir enregistrer, plus bas) : les stats
-// reflètent alors immédiatement l'état en mémoire (etatTransforme).
+// reflètent alors immédiatement l'état en mémoire (etatTransforme) —
+// et remet à jour son badge "exportable" en conséquence (même règle
+// qu'à la construction).
 const rafraichirCarteTcfEoApresSauvegarde = (idCarte: string, parties: PartieEO[]): void => {
     const suivie = cartesTcfEoSuivies.get(idCarte);
     if (!suivie) return;
@@ -153,6 +188,15 @@ const rafraichirCarteTcfEoApresSauvegarde = (idCarte: string, parties: PartieEO[
     suivie.zoneStats.replaceChild(nouvelleSection, suivie.sectionTrans);
     suivie.sectionTrans = nouvelleSection;
     cartesTcfEoSuivies.set(idCarte, suivie);
+
+    const exportableEoSauvegarde = estSerieTcfEoExportable(suivie.extrait, parties);
+    enregistrerActionsCarte(suivie.carte, {
+        nom: suivie.nom,
+        supprimer: suivie.supprimer,
+        rafraichirPage: suivie.rafraichirPage,
+        cibleExport: exportableEoSauvegarde ? { zone: 'tcf-eo', id: idCarte } : undefined,
+        cibleVerification: { zone: 'tcf-eo', id: idCarte },
+    });
 };
 
 // Affiche, dans la zone d'affichage, le contenu d'une carte tcf_eo :

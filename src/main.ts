@@ -44,6 +44,12 @@ import {
 // peut vérifier directement s'il reste encore au moins un des 4
 // dossiers pour ce même id après suppression.
 import { possedeDossierTefPourLien } from './backend/gestion_ref_tef.js';
+// Vérification (BACKEND) de l'exportabilité des sujets pour la zone
+// d'action groupée : une seule requête groupée depuis le renderer
+// (voir verifierExportGroupe côté renderer, exportEcoute.ts), résolue
+// ici en une passe sur les .json transformés (voir verificationExportSujet.ts).
+import { verifierExportGroupe } from './backend/verificationExportSujet.js';
+import type { ZoneExport } from './varUni.js';
 // TCF EO passe désormais exclusivement par son propre module dédié
 // (voir donnee_tcf_eo.ts) : conserveurDonne.ts n'est pas impliqué pour
 // cette donnée-là.
@@ -308,6 +314,16 @@ function createWindow() {
             }
 
             return resultat;
+        }
+    );
+
+    // Sélection groupée (corpsPage.ts) : vérifie EN UNE SEULE requête
+    // l'exportabilité de tous les sujets (cartes) actuellement ouverts
+    // dans la zone d'action groupée — voir verificationExportSujet.ts.
+    ipcMain.handle(
+        'conserveur:verifier-export-groupe',
+        async (_event, demandes: { zone: ZoneExport; id: string }[]) => {
+            return verifierExportGroupe(demandes ?? []);
         }
     );
 

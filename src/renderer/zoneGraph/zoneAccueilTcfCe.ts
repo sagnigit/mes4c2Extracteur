@@ -21,13 +21,13 @@
 // pour la CE du TCF). Contrairement à EE/EO (regroupés par partie), CE
 // est un tableau PLAT de questions : la navigation se fait donc
 // directement par question plutôt que par partie.
-import { construireCorpsPage, afficherMessageZone } from '../composer/corpsPage.js';
+import { construireCorpsPage, afficherMessageZone, enregistrerActionsCarte } from '../composer/corpsPage.js';
 import { Selecteur } from '../generale/selecteur.js';
 import { creerBoutonSupprimerCarte } from '../generale/carteSuppression.js';
 import { creerMessage, typeErreur } from './gestionMessage.js';
 import { ouvrirPopupTransformationImage } from '../composer/EditableImagePopup.js';
 import { creerBoutonExportZone, afficherBoutonExportZone } from './boutonExportZone.js';
-import { estQuestionExportable } from './verificationExport.js';
+import { estQuestionExportable, estSerieTcfCeExportable } from './verificationExport.js';
 import { construireSectionStats, calculerStatsExtraitTcfCe, calculerStatsTransformeTcfCe } from './statsElement.js';
 import {
     CarteTcfCe,
@@ -95,10 +95,17 @@ export const remplirZoneTcfCe = async (page: HTMLDivElement): Promise<void> => {
 // Pour retrouver, après une sauvegarde, la section "Transformé" d'une
 // carte déjà construite, afin de rafraîchir ses stats sans tout
 // reconstruire — même principe que cartesSuivies dans
-// zoneAccueilTef.ts. Clé : l'id de la carte (infoCarte.id).
+// zoneAccueilTef.ts. Sert aussi à remettre à jour le badge
+// "exportable" (voir enregistrerActionsCarte plus bas) sans
+// reconstruire la carte. Clé : l'id de la carte (infoCarte.id).
 interface CarteTcfCeSuivie {
+    carte: HTMLDivElement;
     zoneStats: HTMLDivElement;
     sectionTrans: HTMLDivElement;
+    infoCarte: CarteTcfCe;
+    nom: string;
+    supprimer: () => Promise<{ success: boolean; error?: string }>;
+    rafraichirPage: () => void;
 }
 const cartesTcfCeSuivies = new Map<string, CarteTcfCeSuivie>();
 
@@ -128,11 +135,8 @@ const creerCarteTcfCe = (
     titre.textContent = infoCarte.nom;
     titre.title = infoCarte.nom;
 
-    const boutonSuppr = creerBoutonSupprimerCarte(
-        infoCarte.nom,
-        () => supprimerTcfCe(infoCarte.id),
-        onSupprime
-    );
+    const supprimerCarte = () => supprimerTcfCe(infoCarte.id);
+    const boutonSuppr = creerBoutonSupprimerCarte(infoCarte.nom, supprimerCarte, onSupprime);
 
     entete.append(badge, titre, boutonSuppr);
     carte.appendChild(entete);
@@ -145,7 +149,34 @@ const creerCarteTcfCe = (
     zoneStats.append(sectionExtrait, sectionTrans);
     carte.appendChild(zoneStats);
 
-    cartesTcfCeSuivies.set(infoCarte.id, { zoneStats, sectionTrans });
+    cartesTcfCeSuivies.set(infoCarte.id, {
+        carte,
+        zoneStats,
+        sectionTrans,
+        infoCarte,
+        nom: infoCarte.nom,
+        supprimer: supprimerCarte,
+        rafraichirPage: onSupprime,
+    });
+
+    // Actions réelles de cette carte, utilisées par la sélection
+    // groupée (voir corpsPage.ts). Le badge "exportable" ne doit
+    // apparaître que si le dossier est réellement prêt à l'exportation
+    // dès maintenant (estSerieTcfCeExportable, verificationExport.ts —
+    // mêmes règles que le bouton d'export de la zone d'affichage).
+    const exportableCe = estSerieTcfCeExportable(transforme);
+    enregistrerActionsCarte(carte, {
+        nom: infoCarte.nom,
+        supprimer: supprimerCarte,
+        rafraichirPage: onSupprime,
+        cibleExport: exportableCe ? { zone: 'tcf-ce', id: infoCarte.id } : undefined,
+        // Identité fixe (zone + id) de cette carte : utilisée par la
+        // sélection groupée pour vérifier son exportabilité auprès du
+        // backend, EN UNE SEULE requête pour toutes les cartes listées
+        // (voir verifierEtIndexerCartes dans corpsPage.ts, et
+        // verificationExportSujet.ts côté backend).
+        cibleVerification: { zone: 'tcf-ce', id: infoCarte.id },
+    });
 
     return carte;
 };
@@ -153,7 +184,8 @@ const creerCarteTcfCe = (
 // Rafraîchit la section "Transformé" d'une carte déjà construite,
 // juste après une sauvegarde (voir enregistrer, plus bas) : les stats
 // reflètent alors immédiatement l'état en mémoire (etatTransforme),
-// sans avoir besoin de relire le disque.
+// sans avoir besoin de relire le disque — et remet à jour son badge
+// "exportable" en conséquence (même règle qu'à la construction).
 const rafraichirCarteTcfCeApresSauvegarde = (idCarte: string, questions: QuestionCE[]): void => {
     const suivie = cartesTcfCeSuivies.get(idCarte);
     if (!suivie) return;
@@ -161,6 +193,15 @@ const rafraichirCarteTcfCeApresSauvegarde = (idCarte: string, questions: Questio
     suivie.zoneStats.replaceChild(nouvelleSection, suivie.sectionTrans);
     suivie.sectionTrans = nouvelleSection;
     cartesTcfCeSuivies.set(idCarte, suivie);
+
+    const exportableCeSauvegarde = estSerieTcfCeExportable(questions);
+    enregistrerActionsCarte(suivie.carte, {
+        nom: suivie.nom,
+        supprimer: suivie.supprimer,
+        rafraichirPage: suivie.rafraichirPage,
+        cibleExport: exportableCeSauvegarde ? { zone: 'tcf-ce', id: idCarte } : undefined,
+        cibleVerification: { zone: 'tcf-ce', id: idCarte },
+    });
 };
 
 // Affiche, dans la zone d'affichage, le contenu d'une carte tcf_ce :
@@ -317,7 +358,7 @@ const afficherContenuTcfCe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
         zoneContenu.appendChild(entete);
 
         zoneContenu.appendChild(
-            construireBlocEnonce(questionExtrait.enonce ?? '', questionTrans, index, infoCarte.id, rafraichirIndicateursExport)
+            construireBlocEnonce(questionExtrait.enonce ?? '', questionTrans, index, infoCarte.id, enregistrer)
         );
         zoneContenu.appendChild(
             construireBlocPoints(questionExtrait.points ?? 0, questionTrans, enregistrer, rafraichirIndicateursExport)

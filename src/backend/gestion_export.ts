@@ -20,11 +20,14 @@ import {
     arrangerComprehension,
     arrangerTcfCe,
     arrangerEE,
+    arrangerEELot,
     arrangerEO,
     arrangerTcfEeOuEo,
     type ResultatArrangement,
     type TypeEpreuve,
     type Examen,
+    type DonneesEE,
+    type ElementEELot,
 } from '../exporteur/arrangeExport.js';
 import { envoyerUnique } from '../exporteur/export_unique.js';
 import { envoyerProgressif } from '../exporteur/export_progressif.js';
@@ -75,7 +78,7 @@ export const getLien = (type: "connect" | "tcf" | "tef") => {
 // ensuite à déduire ss/tt (voir decouperSerieEtTest, arrangeExport.ts).
 // ---------------------------------------------------------------------
 
-interface DonneesElement {
+export interface DonneesElement {
     success: boolean;
     transforme?: any;
     cheminDossier?: string;
@@ -83,7 +86,7 @@ interface DonneesElement {
     error?: string;
 }
 
-async function lireElementPourExport(examen: Examen, type: TypeEpreuve, id: string): Promise<DonneesElement> {
+export async function lireElementPourExport(examen: Examen, type: TypeEpreuve, id: string): Promise<DonneesElement> {
     if (examen === 'tef') {
         const lecteur = {
             ce: recupererTransformeEtCheminTefCe,
@@ -259,6 +262,75 @@ export const initExporteur = (feneTre: BrowserWindow) => {
                 type: info.zone,
                 correct: false,
                 message: err?.message ?? String(err),
+            });
+        }
+    });
+
+    //----->> gestion de l'exportation GROUPÉE des sujets TEF · EE
+    //
+    // Contrairement à 'export-ecoute:lancer' (un sujet = une requête,
+    // quelle que soit la zone), TEF · EE fusionne TOUS les sujets reçus
+    // en un seul tableau "sagni" et n'envoie qu'UNE SEULE requête pour
+    // tout le lot (voir arrangerEELot, arrangeExport.ts). Les autres
+    // zones, elles, continuent d'être exportées une par une via
+    // 'export-ecoute:lancer' / demanderExportSequence côté renderer
+    // (voir executerExportGroupe, corpsPage.ts).
+    ipcMain.on('export-ecoute:lancer-groupe-ee', async (_event, info: { ids: string[] }) => {
+        try {
+            const aSession = await possedeSessionExport();
+            if (!aSession) {
+                feneTreGbl.webContents.send('export-ecoute:fin-groupe-ee', null);
+                onDemandeOuvertureVue?.();
+                return;
+            }
+
+            // 1) Lecture du transformé de CHAQUE sujet demandé. Un sujet
+            // illisible n'empêche pas les autres d'être fusionnés et
+            // envoyés : il est juste écarté et reporté séparément.
+            const elements: ElementEELot[] = [];
+            const idsLectureEchouee: string[] = [];
+
+            for (const id of info.ids ?? []) {
+                const element = await lireElementPourExport('tef', 'ee', id);
+                if (!element.success || !element.transforme) {
+                    idsLectureEchouee.push(id);
+                    continue;
+                }
+                elements.push({ id, donnees: element.transforme as DonneesEE });
+            }
+
+            // 2) Fusion en un seul paquet (arrangerEELot écarte à son
+            // tour les sujets dont les données sont incomplètes).
+            const arrangement = arrangerEELot(elements);
+            const idsInvalides = [...idsLectureEchouee, ...arrangement.idsInvalides];
+
+            if (arrangement.paquets.length === 0) {
+                feneTreGbl.webContents.send('export-ecoute:fin-groupe-ee', {
+                    correct: false,
+                    message: arrangement.erreur ?? 'Rien à exporter.',
+                    idsExportes: [],
+                    idsInvalides,
+                });
+                return;
+            }
+
+            // 3) Envoi effectif : UN SEUL fetch pour tout le lot fusionné.
+            const session = obtenirSessionExport();
+            const url = getLien('tef');
+            const resultat = await envoyerUnique(session, url, arrangement.paquets[0]);
+
+            feneTreGbl.webContents.send('export-ecoute:fin-groupe-ee', {
+                correct: resultat.correct,
+                message: resultat.message,
+                idsExportes: arrangement.idsRetenus,
+                idsInvalides,
+            });
+        } catch (err: any) {
+            feneTreGbl.webContents.send('export-ecoute:fin-groupe-ee', {
+                correct: false,
+                message: err?.message ?? String(err),
+                idsExportes: [],
+                idsInvalides: [],
             });
         }
     });

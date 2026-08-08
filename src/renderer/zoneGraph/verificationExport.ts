@@ -271,3 +271,213 @@ export const estQuestionExportable = (
         case 'tcf-eo': return estExportableTcfEo(item, zones);
     }
 };
+
+// ---------------------------------------------------------------------
+// Exportabilité d'une SÉRIE ENTIÈRE (agrégation de toutes ses questions
+// / parties), à partir des données BRUTES telles que lues depuis le
+// disque (extrait + transformé) — AVANT toute ouverture dans la zone
+// d'affichage. Utilisée par les listes de cartes (zoneAccueilTef.ts,
+// zoneAccueilTcfCe/Ee/Eo.ts) pour savoir quelles cartes afficher comme
+// "exportables" (badge dans la sélection groupée, voir corpsPage.ts) :
+// une série n'est exportable QUE SI TOUTES ses questions/parties le
+// sont, exactement comme le bouton d'export de la zone d'affichage
+// (voir rafraichirIndicateursExport dans zoneAff.ts) — mêmes règles
+// (estExportableXxx ci-dessus), donc toujours cohérent avec ce qui y
+// est affiché.
+// ---------------------------------------------------------------------
+
+/** Petit constructeur d'entrée "image"/"audio"/"texte"/"nombre"/"liste", même forme que EtatZone (zoneAff.ts), volontairement dupliquée ici (duck-typing, pas de type importé). */
+const zoneImage = (url: any) => ({ nature: 'image', url: typeof url === 'string' && url.trim() !== '' ? url : null });
+const zoneAudio = (url: any) => ({ nature: 'audio', url: typeof url === 'string' && url.trim() !== '' ? url : null });
+const zoneTexte = (valeur: any) => ({ nature: 'texte', valeur: typeof valeur === 'string' ? valeur : '' });
+const zoneNombre = (valeur: any) => ({ nature: 'nombre', valeur: Number(valeur ?? 0) });
+const zoneListe = (propositions: any, bonneReponse: any) => ({
+    nature: 'liste',
+    items: (['A', 'B', 'C', 'D'] as const)
+        .filter((lettre) => propositions?.[lettre] !== undefined)
+        .map((lettre) => ({ texte: propositions[lettre] ?? '', correcte: bonneReponse === lettre })),
+});
+
+// Même règle que extraireLettreSection (zoneAff.ts) : déduit "A" ou "B"
+// à partir d'un champ "section" du type "section A". Dupliquée ici
+// (fonction pure de 3 lignes) pour éviter un import circulaire avec
+// zoneAff.ts, qui importe déjà ce fichier.
+const extraireLettreSection = (section: any): 'A' | 'B' | '' => {
+    if (typeof section !== 'string') return '';
+    const correspondance = section.trim().match(/([ab])\s*$/i);
+    return correspondance ? (correspondance[1].toUpperCase() as 'A' | 'B') : '';
+};
+
+/**
+ * TEF · CE/CO/EE/EO + TCF · CO (les 5 zones qui passent par "conserveur",
+ * donc par la même forme de transformé brut que zoneAff.ts) : vrai si
+ * la série a au moins un élément et que TOUS ses éléments sont
+ * exportables.
+ * `donnees` : éléments EXTRAITS de la série (ElementDonnee[]).
+ * `transforme` : transformé BRUT tel que lu depuis le disque — un
+ * tableau (avec un champ `index`) pour ce/co, un objet `{A, B}` pour
+ * ee/eo (mêmes formes que celles lues par initialiserEtatDepuisTransforme
+ * dans zoneAff.ts).
+ */
+export const estSerieTefExportable = (
+    examen: 'tef' | 'tcf',
+    type: 'ce' | 'co' | 'ee' | 'eo',
+    donnees: any[],
+    transforme: any
+): boolean => {
+    if (!Array.isArray(donnees) || donnees.length === 0) return false;
+    if (!transforme) return false;
+
+    const zoneExport = `${examen}-${type}` as ZoneExport;
+
+    if (type === 'ce' || type === 'co') {
+        const parIndex = new Map<number, any>();
+        if (Array.isArray(transforme)) {
+            for (const itemTrans of transforme) {
+                if (typeof itemTrans?.index === 'number') parIndex.set(itemTrans.index, itemTrans);
+            }
+        }
+        return donnees.every((_item, index) => {
+            const itemTrans = parIndex.get(index);
+            const zones = new Map<string, any>([
+                ['support', zoneImage(itemTrans?._localImage)],
+                ['image', zoneImage(itemTrans?._localImage)],
+                ['audio', zoneAudio(itemTrans?._localAudio)],
+                ['question', zoneTexte(itemTrans?.consigne)],
+                ['points', zoneNombre(itemTrans?.points)],
+                ['propositions', zoneListe(itemTrans?.propositions, itemTrans?.bonneReponse)],
+            ]);
+            return estQuestionExportable(zoneExport, null, zones);
+        });
+    }
+
+    // ee / eo : transformé indexé par lettre de section (A/B).
+    return donnees.every((itemExtrait) => {
+        const lettre = extraireLettreSection(itemExtrait?.section);
+        const donneesLettre = lettre ? (transforme as any)[lettre] : undefined;
+        const zones = new Map<string, any>([
+            ['sujet', zoneTexte(donneesLettre?.consigne)],
+            ['support_image', zoneImage(donneesLettre?._localImage)],
+            ['support_audio', zoneAudio(donneesLettre?._localAudio)],
+            ...(type === 'eo' ? [['description', zoneTexte(donneesLettre?.description)] as [string, any]] : []),
+        ]);
+        return estQuestionExportable(zoneExport, itemExtrait, zones);
+    });
+};
+
+/**
+ * TCF · CE : vrai si le dossier a au moins une question et que TOUTES
+ * ses questions transformées sont exportables. `questions` : le
+ * transformé TEL QUEL (QuestionCE[]), extrait et transformé étant
+ * fusionnés dans le même objet côté TCF CE (voir donneeTcfCeApi.ts).
+ */
+export const estSerieTcfCeExportable = (questions: QuestionCE[] | null | undefined): boolean => {
+    if (!Array.isArray(questions) || questions.length === 0) return false;
+    return questions.every((question) => estExportableTcfCe(null, question));
+};
+
+/**
+ * TCF · EE / EO : vrai si le dossier a au moins une partie, que le
+ * transformé a bien une entrée pour chacune (même longueur, même
+ * ordre que l'extrait) et que TOUTES sont exportables.
+ */
+export const estSerieTcfEeExportable = (extrait: PartieEE[], transforme: PartieEE[] | null | undefined): boolean => {
+    if (!Array.isArray(extrait) || extrait.length === 0) return false;
+    if (!Array.isArray(transforme) || transforme.length !== extrait.length) return false;
+    return extrait.every((partieExtrait, index) => estExportableTcfEe(partieExtrait, transforme[index]));
+};
+
+export const estSerieTcfEoExportable = (extrait: PartieEO[], transforme: PartieEO[] | null | undefined): boolean => {
+    if (!Array.isArray(extrait) || extrait.length === 0) return false;
+    if (!Array.isArray(transforme) || transforme.length !== extrait.length) return false;
+    return extrait.every((partieExtrait, index) => estExportableTcfEo(partieExtrait, transforme[index]));
+};
+
+// ---------------------------------------------------------------------
+// Nombre de questions/parties À ARRANGER (pas encore exportables) d'une
+// série, à partir des mêmes données BRUTES et avec exactement les mêmes
+// règles que les fonctions estSerieXxxExportable ci-dessus (une série
+// est donc exportable si et seulement si son compte ici vaut 0). Utilisé
+// par les cartes de la sélection groupée (voir corpsPage.ts) pour
+// afficher, sur chaque carte pas encore exportable, combien de
+// questions il reste à corriger avant que le sujet soit exportable.
+// ---------------------------------------------------------------------
+
+/**
+ * TEF · CE/CO/EE/EO + TCF · CO : nombre d'éléments de `donnees` dont la
+ * question/partie correspondante n'est pas encore exportable. Mêmes
+ * règles et mêmes formes de données que estSerieTefExportable.
+ */
+export const compterAArrangerTef = (
+    examen: 'tef' | 'tcf',
+    type: 'ce' | 'co' | 'ee' | 'eo',
+    donnees: any[],
+    transforme: any
+): number => {
+    if (!Array.isArray(donnees) || donnees.length === 0) return 0;
+
+    const zoneExport = `${examen}-${type}` as ZoneExport;
+
+    if (type === 'ce' || type === 'co') {
+        const parIndex = new Map<number, any>();
+        if (Array.isArray(transforme)) {
+            for (const itemTrans of transforme) {
+                if (typeof itemTrans?.index === 'number') parIndex.set(itemTrans.index, itemTrans);
+            }
+        }
+        return donnees.reduce((compte: number, _item, index) => {
+            const itemTrans = parIndex.get(index);
+            const zones = new Map<string, any>([
+                ['support', zoneImage(itemTrans?._localImage)],
+                ['image', zoneImage(itemTrans?._localImage)],
+                ['audio', zoneAudio(itemTrans?._localAudio)],
+                ['question', zoneTexte(itemTrans?.consigne)],
+                ['points', zoneNombre(itemTrans?.points)],
+                ['propositions', zoneListe(itemTrans?.propositions, itemTrans?.bonneReponse)],
+            ]);
+            return estQuestionExportable(zoneExport, null, zones) ? compte : compte + 1;
+        }, 0);
+    }
+
+    // ee / eo : transformé indexé par lettre de section (A/B).
+    return donnees.reduce((compte: number, itemExtrait) => {
+        const lettre = extraireLettreSection(itemExtrait?.section);
+        const donneesLettre = lettre ? (transforme as any)?.[lettre] : undefined;
+        const zones = new Map<string, any>([
+            ['sujet', zoneTexte(donneesLettre?.consigne)],
+            ['support_image', zoneImage(donneesLettre?._localImage)],
+            ['support_audio', zoneAudio(donneesLettre?._localAudio)],
+            ...(type === 'eo' ? [['description', zoneTexte(donneesLettre?.description)] as [string, any]] : []),
+        ]);
+        return estQuestionExportable(zoneExport, itemExtrait, zones) ? compte : compte + 1;
+    }, 0);
+};
+
+/** TCF · CE : nombre de questions pas encore exportables. */
+export const compterAArrangerTcfCe = (questions: QuestionCE[] | null | undefined): number => {
+    if (!Array.isArray(questions)) return 0;
+    return questions.reduce((compte, question) => (estExportableTcfCe(null, question) ? compte : compte + 1), 0);
+};
+
+/**
+ * TCF · EE / EO : nombre de parties pas encore exportables. Si le
+ * transformé n'a pas (encore) la même longueur que l'extrait, chaque
+ * partie de l'extrait est comptée comme à arranger.
+ */
+export const compterAArrangerTcfEe = (extrait: PartieEE[], transforme: PartieEE[] | null | undefined): number => {
+    if (!Array.isArray(extrait) || extrait.length === 0) return 0;
+    if (!Array.isArray(transforme) || transforme.length !== extrait.length) return extrait.length;
+    return extrait.reduce(
+        (compte, partieExtrait, index) => (estExportableTcfEe(partieExtrait, transforme[index]) ? compte : compte + 1),
+        0
+    );
+};
+
+export const compterAArrangerTcfEo = (extrait: PartieEO[], transforme: PartieEO[] | null | undefined): number => {
+    if (!Array.isArray(extrait) || extrait.length === 0) return 0;
+    if (!Array.isArray(transforme) || transforme.length !== extrait.length) return extrait.length;
+    return extrait.reduce(
+        (compte, partieExtrait, index) => (estExportableTcfEo(partieExtrait, transforme[index]) ? compte : compte + 1),
+        0
+    );
+};

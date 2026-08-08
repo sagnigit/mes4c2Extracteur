@@ -1,6 +1,6 @@
 {
   "name": "Mes4C2Extracteur",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "bien",
   "main": "dist/main.js",
   "type": "module",
@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "electron .",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder --publish=always"
+    "dist": "npm run build && electron-builder"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
@@ -55,13 +55,16 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "public/assets/logo.ico"
+      "icon": "public/assets/logo.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "artifactName": "${productName}-${version}.${ext}"
     }
   }
 }

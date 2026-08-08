@@ -51,6 +51,66 @@ export interface ZoneAffichageInstance {
     ) => Promise<void>;
 }
 
+// ---------------------------------------------------------------------
+// Vérification de l'exportabilité d'une série par OUVERTURE RÉELLE
+// ---------------------------------------------------------------------
+// NOTE : ces deux fonctions ne sont plus appelées depuis la sélection
+// groupée (corpsPage.ts) — celle-ci vérifie désormais l'exportabilité
+// EN UNE SEULE requête groupée auprès du backend (voir
+// verifierExportGroupe dans exportEcoute.ts et verificationExportSujet.ts
+// côté backend), plutôt qu'en ouvrant chaque série une par une ici.
+// Conservées telles quelles (non branchées) au cas où ce mode de
+// vérification "par ouverture réelle" serait encore utile ailleurs :
+// plutôt que de recalculer séparément les règles d'exportabilité
+// (risque de divergence avec ce que montre réellement l'ouverture
+// normale d'une carte), on ouvre la série dans une instance de zone
+// d'affichage JETABLE (jamais celle affichée à l'écran — voir
+// verifierExportViaAffichage ci-dessous), exactement comme le ferait
+// un clic sur sa carte, puis on relit l'état que cette ouverture a
+// elle-même posé dans son entête :
+//   - le bouton d'export (.affichage-embed-export-btn, voir
+//     boutonExportZone.ts) est-il affiché (pas de classe
+//     --cache) ? -> la série est exportable ;
+//   - sinon, le message d'entête (.affichage-embed-export-statut,
+//     voir rafraichirIndicateursExport plus bas) indique combien de
+//     questions restent à corriger -> on en reprend le nombre.
+
+/** Lit, dans le DOM d'une zone d'affichage déjà construite (ou son conteneur), l'état d'exportabilité qu'elle affiche. */
+export const lireEtatExportDepuisZone = (racine: ParentNode): { exportable: boolean; nombreAArranger: number } => {
+    const bouton = racine.querySelector('.affichage-embed-export-btn');
+    const exportable = !!bouton && !bouton.classList.contains('affichage-embed-export-btn--cache');
+    if (exportable) return { exportable: true, nombreAArranger: 0 };
+
+    const statut = racine.querySelector('.affichage-embed-export-statut');
+    const correspondance = statut?.textContent?.match(/\d+/);
+    return { exportable: false, nombreAArranger: correspondance ? parseInt(correspondance[0], 10) : 0 };
+};
+
+/**
+ * Vérifie l'exportabilité d'une série TEF (CE/CO/EE/EO) ou TCF · CO en
+ * l'ouvrant réellement — via une instance de zone d'affichage jetable,
+ * construite dans un div détaché (jamais ajouté à la page, donc
+ * invisible et sans effet sur ce que l'utilisateur voit) — puis en
+ * relisant l'état posé par cette ouverture (voir
+ * lireEtatExportDepuisZone ci-dessus) au lieu de dupliquer les règles
+ * d'exportabilité. `donnees` : l'extrait de la série (voir
+ * lireCoupleConserveur) ; le transformé, lui, est relu depuis le
+ * disque par afficherDonnees elle-même, exactement comme à l'ouverture
+ * normale d'une carte.
+ */
+export const verifierExportViaAffichage = async (
+    examen: Examen,
+    type: TypeEpreuve,
+    id: string,
+    donnees: ElementDonnee[]
+): Promise<{ exportable: boolean; nombreAArranger: number }> => {
+    if (donnees.length === 0) return { exportable: false, nombreAArranger: 0 };
+    const diveDetachee = document.createElement('div');
+    const instance = remplirZoneOuverture(diveDetachee, examen, type);
+    await instance.afficherDonnees('', examen, id, type, donnees);
+    return lireEtatExportDepuisZone(diveDetachee);
+};
+
 // Suivi des sauvegardes en cours, TOUTES instances confondues (pour
 // pouvoir toutes les attendre avant la fermeture de l'application — voir
 // flushSauvegardesEnAttente, appelé une seule fois depuis fondation.ts).
@@ -473,6 +533,15 @@ const enregistrerZone = async (
         }
         const resultat = await sauvegarderTransformConserveur(examenCourant, typeCourant, idCourant, donneesEnvoi);
         definirStatut(resultat.success ? 'ok' : 'erreur');
+        // Remet à jour le badge "exportable" de la carte dans l'accueil
+        // (et donc dans la zone d'action groupée) dès CETTE sauvegarde,
+        // sans attendre que l'utilisateur change de carte/ferme la zone
+        // d'affichage (voir rafraichirCarteTefApresAffichage,
+        // zoneAccueilTef.ts) — relit le transformé fraîchement écrit sur
+        // disque pour rester cohérent avec sauvegarderTransformConserveur.
+        if (resultat.success) {
+            void rafraichirCarteTefApresAffichage(examenCourant, idCourant, typeCourant);
+        }
     } catch {
         definirStatut('erreur');
     }
@@ -612,8 +681,15 @@ const initialiserEtatDepuisTransforme = (
 
         const parIndex = obtenirParIndex(index);
         parIndex.set('sujet', { nature: 'texte', valeur: donneesLettre.consigne ?? '' });
+        // Support image/audio : présents pour EE comme pour EO dès que
+        // l'extrait en propose un (voir zonesEeEo plus haut) — ils
+        // doivent donc être restaurés dans les deux cas, pas seulement
+        // pour EO, sans quoi une carte déjà complète au sens du disque
+        // réapparaîtrait comme "à corriger" une fois rouverte (zone
+        // support vide malgré une valeur déjà enregistrée).
+        parIndex.set('support_image', { nature: 'image', url: donneesLettre._localImage || null });
+        parIndex.set('support_audio', { nature: 'audio', url: donneesLettre._localAudio || null });
         if (type === 'eo') {
-            parIndex.set('support_image', { nature: 'image', url: donneesLettre._localImage || null });
             parIndex.set('description', { nature: 'texte', valeur: donneesLettre.description ?? '' });
         }
     });

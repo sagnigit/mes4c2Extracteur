@@ -19,10 +19,12 @@
 // (conserveurDonne.ts), via les fonctions *Conserveur de donneeApi.ts.
 // L'ancienne API par dossier "donnee" (listerSeries / lireCouple /
 // lireTransforme) a été retirée : elle n'était plus utilisée nulle part.
-import { construireCorpsPage } from '../composer/corpsPage.js';
+import { construireCorpsPage, enregistrerActionsCarte } from '../composer/corpsPage.js';
 import { Selecteur } from '../generale/selecteur.js';
 import { creerBoutonSupprimerCarte } from '../generale/carteSuppression.js';
 import { remplirZoneOuverture } from './zoneAff.js';
+import { estSerieTefExportable } from './verificationExport.js';
+import { ZoneExport } from '../../varUni.js';
 import {
     ElementDonnee,
     lireCoupleConserveur,
@@ -51,10 +53,17 @@ const CLASSE_ACCENT: Record<TypeEpreuve, string> = {
 // Pour retrouver, après fermeture de la zone d'affichage, la section
 // "Transformé" d'une carte déjà construite, afin de la rafraîchir sans
 // tout reconstruire (les stats "Transformé" peuvent avoir changé
-// pendant l'édition). Clé : "examen:type:id".
+// pendant l'édition) — et, avec les mêmes informations, remettre à
+// jour son badge "exportable" (voir enregistrerActionsCarte plus bas)
+// sans reconstruire la carte non plus. Clé : "examen:type:id".
 interface CarteTefSuivie {
+    carte: HTMLDivElement;
     zoneStats: HTMLDivElement;
     sectionTrans: HTMLDivElement;
+    donnees: ElementDonnee[];
+    nom: string;
+    supprimer: () => Promise<{ success: boolean; error?: string }>;
+    rafraichirPage: () => void;
 }
 const cartesSuivies = new Map<string, CarteTefSuivie>();
 const cleCarteSuivie = (examen: TypeExamen, type: TypeEpreuve, id: string): string =>
@@ -160,11 +169,8 @@ const creerCarteElement = (
     titre.textContent = serie.nom;
     titre.title = serie.nom;
 
-    const boutonSuppr = creerBoutonSupprimerCarte(
-        serie.nom,
-        () => supprimerSerieConserveur(serie.examen, type, serie.id),
-        onSupprime
-    );
+    const supprimerCarte = () => supprimerSerieConserveur(serie.examen, type, serie.id);
+    const boutonSuppr = creerBoutonSupprimerCarte(serie.nom, supprimerCarte, onSupprime);
 
     entete.append(badge, titre, boutonSuppr);
     carte.appendChild(entete);
@@ -177,14 +183,56 @@ const creerCarteElement = (
     zoneStats.append(sectionExtrait, sectionTrans);
     carte.appendChild(zoneStats);
 
-    cartesSuivies.set(cleCarteSuivie(serie.examen, type, serie.id), { zoneStats, sectionTrans });
+    // Actions réelles de cette carte, utilisées par la sélection
+    // groupée (voir corpsPage.ts) : mêmes fonctions que celles déjà
+    // branchées ci-dessus sur le bouton de suppression individuel /
+    // l'export de la zone d'affichage. Le badge "exportable" (voir
+    // corpsPage.ts) ne doit apparaître QUE si la série est réellement
+    // prête à l'exportation dès maintenant : cibleExport n'est donc
+    // renseigné que si estSerieTefExportable (verificationExport.ts —
+    // exactement les mêmes règles que le bouton d'export de la zone
+    // d'affichage) le confirme, jamais de façon inconditionnelle.
+    // Valeur juste indicative en attendant mieux : à l'ouverture de la
+    // sélection groupée, la vérification GROUPÉE auprès du backend
+    // (cibleVerification, voir verifierEtIndexerCartes dans
+    // corpsPage.ts et verificationExportSujet.ts côté backend)
+    // remplace systématiquement cette valeur par l'état réellement
+    // constaté sur le .json transformé de chaque sujet.
+    const zoneExport = `${serie.examen}-${type}` as ZoneExport;
+    const exportable = estSerieTefExportable(serie.examen, type, donnees, transforme);
+
+    cartesSuivies.set(cleCarteSuivie(serie.examen, type, serie.id), {
+        carte,
+        zoneStats,
+        sectionTrans,
+        donnees,
+        nom: serie.nom,
+        supprimer: supprimerCarte,
+        rafraichirPage: onSupprime,
+    });
+
+    enregistrerActionsCarte(carte, {
+        nom: serie.nom,
+        supprimer: supprimerCarte,
+        rafraichirPage: onSupprime,
+        cibleExport: exportable ? { zone: zoneExport, id: serie.id } : undefined,
+        // Identité fixe (zone + id) de cette carte : utilisée par la
+        // sélection groupée pour vérifier son exportabilité auprès du
+        // backend, EN UNE SEULE requête pour toutes les cartes listées
+        // (voir verifierEtIndexerCartes dans corpsPage.ts, et
+        // verificationExportSujet.ts côté backend).
+        cibleVerification: { zone: zoneExport, id: serie.id },
+    });
 
     return carte;
 };
 
 // Rafraîchit la section "Transformé" d'une carte déjà construite, après
 // fermeture de la zone d'affichage (les stats ont pu changer pendant
-// l'édition). Appelé depuis zoneAff.ts, à la place de l'ancien
+// l'édition), et remet à jour son badge "exportable" en conséquence
+// (même règle qu'à la construction, voir creerCarteElement) — sans
+// reconstruire la carte, juste avec le transformé fraîchement relu.
+// Appelé depuis zoneAff.ts, à la place de l'ancien
 // rafraichirCarteApresAffichage (déplacé ici avec les cartes).
 export const rafraichirCarteTefApresAffichage = async (
     examen: TypeExamen | null,
@@ -205,6 +253,17 @@ export const rafraichirCarteTefApresAffichage = async (
         suivie.zoneStats.replaceChild(nouvelleSection, suivie.sectionTrans);
         suivie.sectionTrans = nouvelleSection;
         cartesSuivies.set(cleCarteSuivie(examen, type, id), suivie);
+
+        if (resultat.success) {
+            const exportable = estSerieTefExportable(examen, type, suivie.donnees, resultat.transforme);
+            enregistrerActionsCarte(suivie.carte, {
+                nom: suivie.nom,
+                supprimer: suivie.supprimer,
+                rafraichirPage: suivie.rafraichirPage,
+                cibleExport: exportable ? { zone: `${examen}-${type}` as ZoneExport, id } : undefined,
+                cibleVerification: { zone: `${examen}-${type}` as ZoneExport, id },
+            });
+        }
     } catch {
         // Silencieux : la carte garde ses anciennes stats en cas d'échec.
     }

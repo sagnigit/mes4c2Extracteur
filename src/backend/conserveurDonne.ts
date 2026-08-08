@@ -46,6 +46,18 @@ export interface NomSerieExtrait {
     nom: string;
     /** Nom du dossier sur disque, ex. "ce_serie_1001" */
     dossier: string;
+    /**
+     * Toujours 'tef' ici : ce module (conserveurDonne.ts) ne gère que
+     * les séries TEF. Champ ajouté pour rester compatible avec le
+     * NomSerieExtrait du renderer (donneeApi.ts), qui EXIGE ce champ
+     * (utilisé pour construire la zone d'export "examen-type", voir
+     * zoneAccueilTef.ts) — avant ce correctif, cet objet ne le
+     * contenait pas du tout : côté renderer, `serie.examen` était donc
+     * `undefined`, ce qui produisait des zones du type "undefined-eo"
+     * envoyées telles quelles au backend (voir corpsPage.ts /
+     * verifierExportGroupe), jamais reconnues par estSujetExportable.
+     */
+    examen: 'tef';
     type: TypeEpreuve;
 }
 
@@ -167,6 +179,7 @@ export function getNomSeries(type: TypeEpreuve): NomSerieExtrait[] {
             id: item.id,
             nom: item.nom,
             dossier: item.chemin,
+            examen: 'tef' as const,
             type,
         }))
         .sort((a, b) => trierNaturellement(a.nom, b.nom));

@@ -378,6 +378,73 @@ export function arrangerEE(donnees: DonneesEE, ss: string, tt: string): Resultat
 }
 
 // ---------------------------------------------------------------------
+// EE (TEF) — LOT (sélection groupée) : contrairement à arrangerEE
+// ci-dessus (un seul élément), la sélection groupée d'une zone TEF · EE
+// doit fusionner TOUS les sujets retenus en un seul tableau "sagni" et
+// n'envoyer qu'UNE SEULE requête pour tout le lot — reproduit fidèlement
+// l'ancien comportement multi-séries (voir exportSite.ts::arrangerEE
+// historique, qui accumulait déjà une ligne par série dans un seul
+// paquet "unique"). Les éléments dont les données sont absentes ou
+// incomplètes sont simplement écartés du tableau (voir `idsInvalides`,
+// reportés séparément par l'appelant) plutôt que de faire échouer tout
+// le lot.
+// ---------------------------------------------------------------------
+
+export interface ElementEELot {
+    id: string;
+    donnees: DonneesEE;
+}
+
+export interface ResultatArrangementLotEE extends ResultatArrangement {
+    /** Identifiants des éléments écartés (données absentes/incomplètes), jamais envoyés. */
+    idsInvalides: string[];
+    /** Identifiants effectivement inclus dans le paquet fusionné. */
+    idsRetenus: string[];
+}
+
+export function arrangerEELot(elements: ElementEELot[]): ResultatArrangementLotEE {
+    const lignes: any[] = [];
+    const idsRetenus: string[] = [];
+    const idsInvalides: string[] = [];
+
+    for (const { id, donnees } of elements) {
+        if (!donnees || !donnees.A || !donnees.B) {
+            idsInvalides.push(id);
+            continue;
+        }
+        lignes.push([INDICE_TYPE_EPREUVE.ee, donnees.A.consigne ?? '', donnees.B.consigne ?? '']);
+        idsRetenus.push(id);
+    }
+
+    if (lignes.length === 0) {
+        return {
+            paquets: [],
+            mode: 'unique',
+            erreur: 'Aucune donnée EE exploitable dans la sélection.',
+            idsInvalides,
+            idsRetenus,
+        };
+    }
+
+    const corpsRequete = new URLSearchParams({
+        provent: 'ajaxSave',
+        sagni: JSON.stringify(lignes),
+        ext: 'true',
+    });
+
+    return {
+        paquets: [{
+            corps: { sagni: lignes },
+            corpsRequete,
+            entetes: { ...HEADER_API_DPLUS, 'Content-Type': 'application/x-www-form-urlencoded' },
+        }],
+        mode: 'unique',
+        idsInvalides,
+        idsRetenus,
+    };
+}
+
+// ---------------------------------------------------------------------
 // EO (TEF) — format { A: { image, consigne, description }, B: { ... } }.
 // Un seul envoi multipart/form-data (comme l'ancien arrangerEO).
 // ---------------------------------------------------------------------
