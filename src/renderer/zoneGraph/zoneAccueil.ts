@@ -10,6 +10,7 @@ import { remplirZoneOuverture } from './zoneAff.js';
 import {ouvreZoneBloquant, fermerZoneBloquant} from './zoneBloquante.js';
 import { ouvreZoneExtract } from './zoneExtract.js';
 import { ouvrirZoneParam } from './zoneParam.js';
+import { ouvrirZoneAuth } from './zoneAuth.js';
 import { creerMessage, typeInfo } from "./gestionMessage.js";
 import { listerSeriesConserveur, TypeEpreuve } from './donneeApi.js';
 import { listerTcfCe } from './donneeTcfCeApi.js';
@@ -331,6 +332,7 @@ const initPiedColonneAccueil = (pied: HTMLDivElement): void => {
         creerBoutonPied('search', 'Extraction', () => ouvreZoneExtract()),
         creerBoutonPied('add_circle', 'Création', () => lancerCreation()),
         creerBoutonPied('settings', 'Paramètres', () => ouvrirZoneParam()),
+        creerBoutonPied('lock', 'Déconnexion', () => ouvrirZoneAuth()),
     );
 };
 

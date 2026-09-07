@@ -90,10 +90,18 @@ async function existeChemin(cible: string): Promise<boolean> {
  * Matérialise les questions CE sans aucun téléchargement d'image.
  * enonce reste le texte provenant de SlimQuestionCE.
  */
+/** Si l'extrait n'a aucune proposition non vide → A→D "Proposition A"…"D". */
+function optionsAvecDefautSiVides(options: string[] | undefined): string[] {
+  const opts = Array.isArray(options) ? options.map((o) => (o != null ? String(o) : '')) : [];
+  const aDuContenu = opts.some((o) => o.trim() !== '');
+  if (aDuContenu) return opts;
+  return ['Proposition A', 'Proposition B', 'Proposition C', 'Proposition D'];
+}
+
 function materialiserQuestions(questions: SlimQuestionCE[]): QuestionCE[] {
   return questions.map((q) => ({
     points: q.points,
-    options: Array.isArray(q.options) ? [...q.options] : [],
+    options: optionsAvecDefautSiVides(Array.isArray(q.options) ? [...q.options] : []),
     correctAnswerIndex: q.correctAnswerIndex,
     enonce: q.enonce != null ? String(q.enonce) : '',
     question: q.question != null ? String(q.question) : '',
@@ -104,11 +112,12 @@ function materialiserQuestions(questions: SlimQuestionCE[]): QuestionCE[] {
  * Transformé initial = copie de l'extrait (enonce encore en texte).
  * Le côté graphique générera l'image dans trans_img/ et mettra à jour
  * le champ enonce du transformé avec le chemin local.
+ * Sans propositions dans l'extrait → "Proposition A"…"Proposition D".
  */
 function genererTransformDepuisExtrait(questions: QuestionCE[]): QuestionCE[] {
   return questions.map((q) => ({
     points: q.points,
-    options: [...q.options],
+    options: optionsAvecDefautSiVides(q.options),
     correctAnswerIndex: q.correctAnswerIndex,
     enonce: q.enonce,
     question: q.question,
@@ -201,6 +210,8 @@ export async function lireDonneeTcfCe(
   success: boolean;
   extrait?: QuestionCE[];
   transforme?: (QuestionCE & { _localEnonceImage?: string })[];
+  /** ss manuel éventuel (champ séparé pour l'IPC). */
+  ss?: string;
   error?: string;
 }> {
   chargeRef();
@@ -215,12 +226,22 @@ export async function lireDonneeTcfCe(
     const extrait: QuestionCE[] = (await existeChemin(cheminExtrait))
       ? JSON.parse(await fsp.readFile(cheminExtrait, 'utf-8'))
       : [];
-    const transformeBrut: QuestionCE[] = (await existeChemin(cheminTrans))
+    let parseTrans: any = (await existeChemin(cheminTrans))
       ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
       : extrait;
+    const transformeBrut: QuestionCE[] = Array.isArray(parseTrans)
+      ? parseTrans
+      : Array.isArray(parseTrans?.items)
+        ? parseTrans.items
+        : Array.isArray(extrait)
+          ? extrait
+          : [];
+    const ss = !Array.isArray(parseTrans) && typeof parseTrans?.ss === 'string'
+      ? parseTrans.ss.trim()
+      : '';
     const transforme = transformeBrut.map((q) => resoudreImageEnonce(cheminDossier, q));
 
-    return { success: true, extrait, transforme };
+    return { success: true, extrait, transforme, ss };
   } catch (err: any) {
     return { success: false, error: err?.message ?? String(err) };
   }
@@ -305,11 +326,16 @@ export async function sauvegarderTransformeTcfCe(
   try {
     const cheminDossier = path.join(dossierConserveur, dossier);
     creer_dossier(path.join(cheminDossier, SOUS_DOSSIER_TRANS_IMG));
-    await fsp.writeFile(
-      path.join(cheminDossier, NOM_FICHIER_TRANS),
-      JSON.stringify(questions, null, 2),
-      'utf-8'
-    );
+    const cheminTrans = path.join(cheminDossier, NOM_FICHIER_TRANS);
+    let ssExistant = '';
+    if (await existeChemin(cheminTrans)) {
+      try {
+        const parse = JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'));
+        if (!Array.isArray(parse) && typeof parse?.ss === 'string') ssExistant = parse.ss.trim();
+      } catch { /* */ }
+    }
+    const aEcrire = ssExistant ? { ss: ssExistant, items: questions } : questions;
+    await fsp.writeFile(cheminTrans, JSON.stringify(aEcrire, null, 2), 'utf-8');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message ?? String(err) };
@@ -348,9 +374,15 @@ export async function enregistrerImageEnonceTcfCe(
     await fsp.writeFile(cheminFichier, Buffer.from(donneeBase64, 'base64'));
 
     const cheminTrans = path.join(cheminDossier, NOM_FICHIER_TRANS);
-    const transforme: QuestionCE[] = (await existeChemin(cheminTrans))
+    let brut: any = (await existeChemin(cheminTrans))
       ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
       : [];
+    const transforme: QuestionCE[] = Array.isArray(brut)
+      ? brut
+      : Array.isArray(brut?.items)
+        ? brut.items
+        : [];
+    const ssExistant = !Array.isArray(brut) && typeof brut?.ss === 'string' ? brut.ss.trim() : '';
 
     while (transforme.length <= indexQuestion) {
       transforme.push({ points: 0, options: [], correctAnswerIndex: -1, enonce: '', question: '' });
@@ -359,7 +391,8 @@ export async function enregistrerImageEnonceTcfCe(
     const cheminRelatif = `${SOUS_DOSSIER_TRANS_IMG}/${nomFichier}`;
     transforme[indexQuestion] = { ...transforme[indexQuestion], enonce: cheminRelatif };
 
-    await fsp.writeFile(cheminTrans, JSON.stringify(transforme, null, 2), 'utf-8');
+    const aEcrire = ssExistant ? { ss: ssExistant, items: transforme } : transforme;
+    await fsp.writeFile(cheminTrans, JSON.stringify(aEcrire, null, 2), 'utf-8');
 
     const cheminAbsolu = `file://${cheminFichier.replace(/\\/g, '/')}`;
     return { success: true, cheminRelatif, cheminAbsolu };
@@ -388,11 +421,45 @@ export async function recupererTransformeEtCheminTcfCe(
     const cheminDossier = path.join(dossierConserveur, dossier);
     const cheminTrans = path.join(cheminDossier, NOM_FICHIER_TRANS);
 
-    const transforme: QuestionCE[] = (await existeChemin(cheminTrans))
+    let brut: any = (await existeChemin(cheminTrans))
       ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
       : [];
+    let transforme: QuestionCE[] = Array.isArray(brut)
+      ? brut
+      : Array.isArray(brut?.items)
+        ? brut.items
+        : [];
+    const ss = !Array.isArray(brut) && typeof brut?.ss === 'string' ? brut.ss.trim() : '';
+    if (ss) (transforme as any).ss = ss;
 
     return { success: true, cheminDossier, transforme };
+  } catch (err: any) {
+    return { success: false, error: err?.message ?? String(err) };
+  }
+}
+
+/** Enregistre uniquement le ss manuel dans trans_ce.json (préserve les items). */
+export async function sauvegarderSsTcfCe(
+  idLien: string,
+  ss: string
+): Promise<{ success: boolean; error?: string }> {
+  chargeRef();
+  const dossier = getRef(racineChemin)[idLien];
+  if (!dossier) return { success: false, error: 'Donnée introuvable.' };
+  try {
+    const cheminTrans = path.join(dossierConserveur, dossier, NOM_FICHIER_TRANS);
+    let brut: any = (await existeChemin(cheminTrans))
+      ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
+      : [];
+    const items: QuestionCE[] = Array.isArray(brut)
+      ? brut
+      : Array.isArray(brut?.items)
+        ? brut.items
+        : [];
+    const ssNettoye = (ss ?? '').trim();
+    const aEcrire = ssNettoye ? { ss: ssNettoye, items } : items;
+    await fsp.writeFile(cheminTrans, JSON.stringify(aEcrire, null, 2), 'utf-8');
+    return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message ?? String(err) };
   }

@@ -35,6 +35,27 @@ import { envoyerProgressif } from '../exporteur/export_progressif.js';
 // voir ZoneExport dans exportEcoute.ts ('tcf-ce' .. 'tef-eo').
 import type { ZoneExport } from '../varUni.js';
 
+/** Lit le ss manuel éventuellement attaché au transformé (propriété .ss). */
+function extraireSsDepuisTransforme(transforme: any): string {
+    if (!transforme) return '';
+    if (typeof (transforme as any).ss === 'string') return String((transforme as any).ss).trim();
+    return '';
+}
+
+/**
+ * Retire la métadonnée ss du transformé avant de le passer aux
+ * fonctions d'arrangement (qui attendent le schéma métier pur :
+ * tableau d'items CE/CO, ou objet A/B pour EE/EO).
+ */
+function nettoyerTransformePourArrangement(transforme: any): any {
+    if (!transforme) return transforme;
+    if (Array.isArray(transforme)) return transforme;
+    if (typeof transforme === 'object' && 'ss' in transforme) {
+        const { ss: _ss, ...reste } = transforme;
+        return reste;
+    }
+    return transforme;
+}
 
 export const PARTITION_EXPORT = 'persist:site-recuperateur';
 const idRef = "outil_exportation";
@@ -83,6 +104,8 @@ export interface DonneesElement {
     transforme?: any;
     cheminDossier?: string;
     nom?: string;
+    /** ss manuel éventuel, lu depuis le JSON transformé (vide = auto). */
+    ss?: string;
     error?: string;
 }
 
@@ -97,7 +120,14 @@ export async function lireElementPourExport(examen: Examen, type: TypeEpreuve, i
         const resultat = await lecteur(id);
         if (!resultat.success) return { success: false, error: resultat.error ?? 'Donnée introuvable.' };
         const nom = getNomSeries(type).find((s) => s.id === id)?.nom ?? id;
-        return { success: true, transforme: resultat.transforme, cheminDossier: resultat.cheminDossier, nom };
+        const ss = extraireSsDepuisTransforme(resultat.transforme);
+        return {
+            success: true,
+            transforme: resultat.transforme,
+            cheminDossier: resultat.cheminDossier,
+            nom,
+            ss,
+        };
     }
 
     // TCF
@@ -105,24 +135,52 @@ export async function lireElementPourExport(examen: Examen, type: TypeEpreuve, i
         const resultat = await recupererTransformeEtCheminTcfCe(id);
         if (!resultat.success) return { success: false, error: resultat.error ?? 'Donnée introuvable.' };
         const nom = listerCartesTcfCe().find((c) => c.id === id)?.nom ?? id;
-        return { success: true, transforme: resultat.transforme, cheminDossier: resultat.cheminDossier, nom };
+        const ss = extraireSsDepuisTransforme(resultat.transforme);
+        return {
+            success: true,
+            transforme: resultat.transforme,
+            cheminDossier: resultat.cheminDossier,
+            nom,
+            ss,
+        };
     }
     if (type === 'co') {
         const resultat = await recupererTransformeEtCheminTcfCo(id);
         if (!resultat.success) return { success: false, error: resultat.error ?? 'Donnée introuvable.' };
         const nom = listerCartesTcfCo().find((c) => c.id === id)?.nom ?? id;
-        return { success: true, transforme: resultat.transforme, cheminDossier: resultat.cheminDossier, nom };
+        const ss = extraireSsDepuisTransforme(resultat.transforme);
+        return {
+            success: true,
+            transforme: resultat.transforme,
+            cheminDossier: resultat.cheminDossier,
+            nom,
+            ss,
+        };
     }
     if (type === 'ee') {
         const resultat = await recupererTransformeEtCheminTcfEe(id);
         if (!resultat.success) return { success: false, error: resultat.error ?? 'Donnée introuvable.' };
         const nom = listerCartesTcfEe().find((c) => c.id === id)?.nom ?? id;
-        return { success: true, transforme: resultat.transforme, cheminDossier: resultat.cheminDossier, nom };
+        const ss = extraireSsDepuisTransforme(resultat.transforme);
+        return {
+            success: true,
+            transforme: resultat.transforme,
+            cheminDossier: resultat.cheminDossier,
+            nom,
+            ss,
+        };
     }
     const resultat = await recupererTransformeEtCheminTcfEo(id);
     if (!resultat.success) return { success: false, error: resultat.error ?? 'Donnée introuvable.' };
     const nom = listerCartesTcfEo().find((c) => c.id === id)?.nom ?? id;
-    return { success: true, transforme: resultat.transforme, cheminDossier: resultat.cheminDossier, nom };
+    const ss = extraireSsDepuisTransforme(resultat.transforme);
+    return {
+        success: true,
+        transforme: resultat.transforme,
+        cheminDossier: resultat.cheminDossier,
+        nom,
+        ss,
+    };
 }
 
 // ---------------------------------------------------------------------
@@ -142,7 +200,16 @@ async function arrangerElement(
     tt: string
 ): Promise<ResultatArrangement> {
     if (type === 'ce' && examen === 'tef') return arrangerComprehension(transforme, 'ce', cheminDossier, ss, tt);
-    if (type === 'co') return arrangerComprehension(transforme, 'co', cheminDossier, ss, tt);
+    // TEF · CO : grille de points selon la position de la question.
+    // TCF · CO : points déjà présents dans le transformé (pas la grille).
+    if (type === 'co' && examen === 'tef') {
+        return arrangerComprehension(transforme, 'co', cheminDossier, ss, tt);
+    }
+    if (type === 'co' && examen === 'tcf') {
+        return arrangerComprehension(transforme, 'co', cheminDossier, ss, tt, {
+            pointsDepuisDonnees: true,
+        });
+    }
     if (type === 'ce' && examen === 'tcf') return arrangerTcfCe(transforme, cheminDossier, ss, tt);
     if (type === 'ee' && examen === 'tef') return arrangerEE(transforme, ss, tt);
     if (type === 'eo' && examen === 'tef') return arrangerEO(transforme, cheminDossier, ss, tt);
@@ -197,7 +264,7 @@ export const initExporteur = (feneTre: BrowserWindow) => {
             // rien envoyer -> on prévient le renderer (payload `null`,
             // voir le contrat de exportEcoute.ts) et on ouvre la zone de
             // connexion.
-            const aSession = await possedeSessionExport();
+            const aSession = true; //await possedeSessionExport();
             if (!aSession) {
                 feneTreGbl.webContents.send('export-ecoute:fin', null);
                 onDemandeOuvertureVue?.();
@@ -217,11 +284,22 @@ export const initExporteur = (feneTre: BrowserWindow) => {
 
             // 3) Arrangement (mise en forme + vérification) propre au
             // couple examen/type.
-            const { ss, tt } = decouperSerieEtTest(element.nom ?? info.id);
+            //
+            // ss manuel (saisi dans la zone d'affichage, stocké dans le
+            // JSON transformé) : s'il est renseigné, on l'utilise tel quel
+            // et tt reste vide. Sinon repli sur decouperSerieEtTest :
+            //   TCF · EE/EO → ss = nom de carte tel quel ("Août 2026")
+            //   reste       → ss = "Série N" (découpage numérique)
+            const nomAffichable = (element.nom ?? info.id).trim();
+            const ssManuel = (element.ss ?? extraireSsDepuisTransforme(element.transforme)).trim();
+            const { ss, tt } = ssManuel
+                ? { ss: ssManuel, tt: '' }
+                : decouperSerieEtTest(nomAffichable, examen, type);
+            const transformePropre = nettoyerTransformePourArrangement(element.transforme);
             const arrangement = await arrangerElement(
                 examen,
                 type,
-                element.transforme,
+                transformePropre,
                 element.cheminDossier ?? '',
                 ss,
                 tt

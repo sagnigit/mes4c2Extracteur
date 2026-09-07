@@ -31,6 +31,7 @@ import {
     sauvegarderTransformeTcfEo,
     supprimerTcfEo,
 } from './donneeTcfEoApi.js';
+import { sauvegarderSsConserveur } from './donneeApi.js';
 
 /**
  * Construit le corps de la page TCF · EO : zone à droite (une carte
@@ -62,20 +63,29 @@ export const remplirZoneTcfEo = async (page: HTMLDivElement): Promise<void> => {
         let ouvrirPremiereCarte: (() => void) | null = null;
 
         for (const infoCarte of cartes) {
-            const resultat = await lireTcfEo(infoCarte.id);
-            const extrait = resultat.success ? (resultat.extrait ?? []) : [];
-            const transforme = resultat.success ? (resultat.transforme ?? extrait) : null;
+            try {
+                const resultat = await lireTcfEo(infoCarte.id);
+                const extrait = resultat.success ? (resultat.extrait ?? []) : [];
+                let transforme = resultat.success ? (resultat.transforme ?? extrait) : null;
+                if (transforme && !Array.isArray(transforme) && Array.isArray((transforme as any).items)) {
+                    const ss = typeof (transforme as any).ss === 'string' ? (transforme as any).ss : '';
+                    transforme = (transforme as any).items;
+                    if (ss) (transforme as any).ss = ss;
+                }
 
-            const ouvrirCarte = () => {
-                selecteurCartes.selectUnique(carte);
-                void afficherContenuTcfEo(zoneAffichage, infoCarte);
-            };
-            const carte = creerCarteTcfEo(infoCarte, extrait, transforme, ouvrirCarte, () =>
-                void remplirZoneTcfEo(page)
-            );
-            listeCartes.addItem(carte);
+                const ouvrirCarte = () => {
+                    selecteurCartes.selectUnique(carte);
+                    void afficherContenuTcfEo(zoneAffichage, infoCarte);
+                };
+                const carte = creerCarteTcfEo(infoCarte, extrait, transforme, ouvrirCarte, () =>
+                    void remplirZoneTcfEo(page)
+                );
+                listeCartes.addItem(carte);
 
-            if (!ouvrirPremiereCarte) ouvrirPremiereCarte = ouvrirCarte;
+                if (!ouvrirPremiereCarte) ouvrirPremiereCarte = ouvrirCarte;
+            } catch (err) {
+                console.error('[TCF EO] carte ignorée (chargement):', infoCarte.id, err);
+            }
         }
 
         // Ouvre par défaut la première carte, s'il y en a au moins une.
@@ -212,20 +222,60 @@ const afficherContenuTcfEo = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
     }
 
     const extrait = resultat.extrait ?? [];
-    const transforme = resultat.transforme ?? extrait;
+    let transforme = resultat.transforme ?? extrait;
+    if (transforme && !Array.isArray(transforme) && Array.isArray((transforme as any).items)) {
+        const ss = typeof (transforme as any).ss === 'string' ? (transforme as any).ss : '';
+        transforme = (transforme as any).items;
+        if (ss) (transforme as any).ss = ss;
+    }
+    if (!Array.isArray(transforme)) transforme = [];
     if (extrait.length === 0) {
         afficherMessageZone(zoneAffichage, 'Aucune partie à afficher.');
         return;
     }
 
-    // État transformé courant, une entrée par partie (même ordre que
-    // l'extrait) — modifié en mémoire à chaque frappe, enregistré (le
-    // tableau complet) à la perte de focus de n'importe quel champ.
-    const etatTransforme: PartieEO[] = extrait.map((partie, index) => ({
-        nomPartie: partie.nomPartie,
-        tache2: transforme[index]?.tache2 ?? partie.tache2,
-        tache3: transforme[index]?.tache3 ?? partie.tache3,
-    }));
+    // Fusion extrait ↔ transformé (même logique que le backend / TCF EE) :
+    // parties déjà éditées conservées, nouvelles parties de l'extrait
+    // ajoutées — pour que l'affichage et trans_eo.json restent alignés
+    // même sans re-extraction.
+    const parNomTrans = new Map<string, PartieEO>();
+    for (const p of transforme) {
+        const cle = (p.nomPartie ?? '').trim();
+        if (cle) parNomTrans.set(cle, p);
+    }
+    const etatTransforme: PartieEO[] = extrait.map((partie, index) => {
+        const cle = (partie.nomPartie ?? '').trim();
+        const existante = (cle ? parNomTrans.get(cle) : undefined) ?? transforme[index];
+        if (!existante) {
+            return {
+                nomPartie: partie.nomPartie,
+                tache2: [...(partie.tache2 ?? [])],
+                tache3: [...(partie.tache3 ?? [])],
+            };
+        }
+        return {
+            nomPartie: partie.nomPartie ?? existante.nomPartie,
+            tache2: Array.isArray(existante.tache2) ? [...existante.tache2] : [...(partie.tache2 ?? [])],
+            tache3: Array.isArray(existante.tache3) ? [...existante.tache3] : [...(partie.tache3 ?? [])],
+        };
+    });
+
+    const nomsTrans = new Set(
+        transforme.map((p) => (p.nomPartie ?? '').trim()).filter((c) => c.length > 0)
+    );
+    const transformeIncomplet =
+        transforme.length !== etatTransforme.length
+        || extrait.some((p) => {
+            const c = (p.nomPartie ?? '').trim();
+            return c.length > 0 && !nomsTrans.has(c);
+        });
+    if (transformeIncomplet) {
+        void sauvegarderTransformeTcfEo(infoCarte.id, etatTransforme).then((res) => {
+            if (!res.success) {
+                creerMessage(typeErreur, infoCarte.nom, res.error ?? 'Échec de la synchronisation du transformé.');
+            }
+        });
+    }
 
     const enregistrer = (): void => {
         rafraichirCarteTcfEoApresSauvegarde(infoCarte.id, etatTransforme);
@@ -248,6 +298,51 @@ const afficherContenuTcfEo = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
     enteteTitre.className = 'affichage-embed-entete-titre';
     enteteTitre.textContent = `${infoCarte.nom} — EO`;
     enteteEmbed.appendChild(enteteTitre);
+
+    // Champ "Nom du sujet (ss)" — même comportement que zoneAff.ts
+    // (TEF / TCF·CO) : vide = auto via decouperSerieEtTest à l'export.
+    const zoneSs = document.createElement('div');
+    zoneSs.className = 'affichage-embed-ss';
+    const labelSs = document.createElement('label');
+    labelSs.className = 'affichage-embed-ss-label';
+    labelSs.textContent = 'Nom du sujet';
+    zoneSs.appendChild(labelSs);
+    const inputSs = document.createElement('input');
+    inputSs.type = 'text';
+    inputSs.className = 'affichage-embed-ss-input';
+    inputSs.placeholder = 'Auto (depuis le titre)';
+    inputSs.setAttribute('spellcheck', 'false');
+    inputSs.setAttribute('autocomplete', 'off');
+    const ssInitial = typeof (resultat as any)?.ss === 'string'
+        ? String((resultat as any).ss).trim()
+        : (typeof (transforme as any)?.ss === 'string' ? String((transforme as any).ss).trim() : '');
+    inputSs.value = ssInitial;
+    let ssCourant = ssInitial;
+    zoneSs.appendChild(inputSs);
+    const indicateurSs = document.createElement('span');
+    indicateurSs.className = 'zed-statut-save';
+    zoneSs.appendChild(indicateurSs);
+    const definirStatutSs = (statut: 'enregistrement' | 'ok' | 'erreur' | null): void => {
+        indicateurSs.className = 'zed-statut-save';
+        if (!statut) { indicateurSs.textContent = ''; return; }
+        indicateurSs.classList.add(`zed-statut-save--${statut}`);
+        indicateurSs.textContent = statut === 'enregistrement' ? 'Enregistrement...'
+            : statut === 'ok' ? 'Enregistré ✓' : "Échec de l'enregistrement";
+        if (statut === 'ok') setTimeout(() => { indicateurSs.className = 'zed-statut-save'; indicateurSs.textContent = ''; }, 2200);
+    };
+    const enregistrerSsSiModifie = async (): Promise<void> => {
+        const valeur = (inputSs.value ?? '').trim();
+        if (valeur === ssCourant) return;
+        definirStatutSs('enregistrement');
+        try {
+            const res = await sauvegarderSsConserveur('tcf', 'eo', infoCarte.id, valeur);
+            if (res.success) { ssCourant = valeur; definirStatutSs('ok'); }
+            else definirStatutSs('erreur');
+        } catch { definirStatutSs('erreur'); }
+    };
+    inputSs.addEventListener('blur', () => { void enregistrerSsSiModifie(); });
+    inputSs.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); inputSs.blur(); } });
+    enteteEmbed.appendChild(zoneSs);
 
     // Indicateur d'exportabilité : reste vide tant que toutes les
     // parties ne sont pas prêtes à l'exportation, sinon affiche

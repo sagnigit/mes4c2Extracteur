@@ -89,7 +89,10 @@ const aucuneChaineVide = (valeur: any): boolean => {
 
 /** TEF · Compréhension Écrite. */
 export const verifierTefCeExportable = (transforme: any): boolean => {
-    return Array.isArray(transforme) && transforme.length > 0 && aucuneChaineVide(transforme);
+    const tab = Array.isArray(transforme)
+        ? transforme
+        : (transforme && Array.isArray(transforme.items) ? transforme.items : null);
+    return !!tab && tab.length > 0 && aucuneChaineVide(tab);
 };
 
 /**
@@ -126,7 +129,10 @@ export const verifierTefEoExportable = (transforme: any): boolean => {
 
 /** TCF · Compréhension Écrite. */
 export const verifierTcfCeExportable = (transforme: any): boolean => {
-    return Array.isArray(transforme) && transforme.length > 0 && aucuneChaineVide(transforme);
+    const tab = Array.isArray(transforme)
+        ? transforme
+        : (transforme && Array.isArray(transforme.items) ? transforme.items : null);
+    return !!tab && tab.length > 0 && aucuneChaineVide(tab);
 };
 
 /**
@@ -139,14 +145,25 @@ export const verifierTcfCoExportable = (transforme: any): boolean => {
     return true;
 };
 
+/** Accepte le tableau pur ou le format { ss, items }. */
+const tableauDepuisTransforme = (transforme: any): any[] | null => {
+    if (Array.isArray(transforme)) return transforme;
+    if (transforme && typeof transforme === 'object' && Array.isArray(transforme.items)) {
+        return transforme.items;
+    }
+    return null;
+};
+
 /** TCF · Expression Écrite. */
 export const verifierTcfEeExportable = (transforme: any): boolean => {
-    return Array.isArray(transforme) && transforme.length > 0 && aucuneChaineVide(transforme);
+    const tab = tableauDepuisTransforme(transforme);
+    return !!tab && tab.length > 0 && aucuneChaineVide(tab);
 };
 
 /** TCF · Expression Orale. */
 export const verifierTcfEoExportable = (transforme: any): boolean => {
-    return Array.isArray(transforme) && transforme.length > 0 && aucuneChaineVide(transforme);
+    const tab = tableauDepuisTransforme(transforme);
+    return !!tab && tab.length > 0 && aucuneChaineVide(tab);
 };
 
 /**

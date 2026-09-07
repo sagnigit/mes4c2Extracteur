@@ -27,7 +27,7 @@ export const listerTcfEe = (): Promise<CarteTcfEe[]> => {
 /** Lit l'extrait ET le transformé d'une carte TCF EE (par id de lien). */
 export const lireTcfEe = (
     idLien: string
-): Promise<{ success: boolean; extrait?: PartieEE[]; transforme?: PartieEE[]; error?: string }> => {
+): Promise<{ success: boolean; extrait?: PartieEE[]; transforme?: PartieEE[]; ss?: string; error?: string }> => {
     return window.api.invoke('tcf-ee:read', idLien);
 };
 

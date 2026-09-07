@@ -6,22 +6,32 @@
  * bascule façon .nm-btn (pilule), variables --bordure-simple / --box-shadow.
  * .zp-module porte aussi la classe utilitaire "zone-ombre-simple" (ombre +
  * bordure déjà définies globalement), donc pas de duplication ici.
+ *
+ * Disposition : .zp-rail est une GRILLE 2 colonnes. Les modules simples
+ * (01, 02) tiennent chacun dans une colonne et se retrouvent donc côte à
+ * côte. Les modules plus riches (03 export, 04 mot de passe) portent la
+ * classe .zp-module--full et occupent toute la largeur. Ça réduit
+ * fortement le scroll vertical par rapport à un empilement pur.
  */
 
-/* .zp-panel vit DANS .panel-body (padding/scroll déjà gérés par le Panel) :
-   il n'a donc besoin que de prendre la largeur disponible. */
 .zp-panel {
   width: 100%;
-  max-width: 480px;
+  max-width: 760px; /* élargi : avant 480px, on gaspillait la largeur */
   margin: 0 auto;
 }
 
-/* -------------------- Rail vertical + modules -------------------- */
+/* -------------------- Grille de modules -------------------- */
 
 .zp-rail {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  align-items: start;
+}
+
+/* Modules avec plusieurs champs : occupent toute la largeur disponible */
+.zp-module--full {
+  grid-column: 1 / -1;
 }
 
 .zp-module {
@@ -29,6 +39,8 @@
   border-radius: 10px;
   background: #f9f9fb;
   transition: border-color 0.15s ease, background-color 0.15s ease;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .zp-module:hover {
@@ -44,14 +56,14 @@
 
 .zp-module__badge {
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #2563eb;
   background: #eff4ff;
   border: 1px solid #bcd0ff;
   border-radius: 50%;
-  width: 26px;
-  height: 26px;
+  width: 27px;
+  height: 27px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -64,23 +76,23 @@
 
 .zp-module__title {
   margin: 0 0 2px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: #111827;
 }
 
 .zp-module__subtitle {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: #6b7280;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .zp-module__hint {
   margin: 0 0 14px;
-  font-size: 13px;
+  font-size: 14px;
   color: #6b7280;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .zp-module__actions {
@@ -89,17 +101,23 @@
   margin-top: 14px;
 }
 
+.zp-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
 /* -------------------------- Boutons -------------------------- */
-/* Repris de .al-refresh-btn / .sl-export-btn */
 
 .zp-btn {
-  font-size: 13px;
+  position: relative;
+  font-size: 14px;
   font-weight: 600;
-  padding: 8px 16px;
+  padding: 9px 17px;
   border-radius: 6px;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
 
 .zp-btn:focus-visible {
@@ -112,11 +130,11 @@
   color: #ffffff;
 }
 
-.zp-btn--primary:hover {
+.zp-btn--primary:hover:not(:disabled) {
   background: #1d4ed8;
 }
 
-.zp-btn--primary:active {
+.zp-btn--primary:active:not(:disabled) {
   background: #1e40af;
 }
 
@@ -126,22 +144,48 @@
   color: #2563eb;
 }
 
-.zp-btn--ghost:hover {
+.zp-btn--ghost:hover:not(:disabled) {
   background: #eff4ff;
 }
 
-.zp-btn--ghost:active {
+.zp-btn--ghost:active:not(:disabled) {
   background: #dbeafe;
 }
 
-/* --------------------------- Champs --------------------------- */
-/* Repris de .editable-block__content */
+.zp-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.zp-btn--loading {
+  color: transparent;
+}
+
+.zp-btn--loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: zp-spin 0.7s linear infinite;
+}
+
+@keyframes zp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------- Champs (liens) --------------------------- */
 
 .zp-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 5px;
+  margin-bottom: 10px;
 }
 
 .zp-field:last-of-type {
@@ -155,13 +199,13 @@
 }
 
 .zp-field__label {
-  font-size: 12px;
+  font-size: 13px;
   color: #6b7280;
   font-weight: 500;
 }
 
 .zp-field__status {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #16a34a;
   opacity: 0;
@@ -181,7 +225,7 @@
   border: 1px solid #d0d0d5;
   border-radius: 8px;
   background: #ffffff;
-  font-size: 14px;
+  font-size: 15px;
   color: #1a1a1a;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -194,17 +238,116 @@
 
 .zp-field__input::placeholder {
   color: #9a9aa2;
+  font-size: 14px;
+}
+
+/* Sous-grille pour les 3 liens d'export : côte à côte quand la place le permet */
+.zp-export-champs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 16px;
+  align-items: start;
+}
+
+/* ------------------- Champs mot de passe (module 04) ------------------- */
+
+.zp-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.zp-mdp-ligne {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Sous-grille pour les 3 champs mot de passe : côte à côte quand la place le permet */
+.zp-mdp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 16px;
+  align-items: start;
+  margin-bottom: 4px;
+}
+
+.zp-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 40px 10px 12px;
+  border: 1px solid #d0d0d5;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 15px;
+  color: #1a1a1a;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.zp-input::placeholder {
+  color: #9a9aa2;
+  font-size: 14px;
+}
+
+.zp-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.zp-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.zp-input--erreur {
+  border-color: #d93025 !important;
+}
+.zp-input--erreur:focus {
+  box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15);
+}
+
+.zp-oeil {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #9a9aa2;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.zp-oeil:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.zp-field-erreur {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #d93025;
+  min-height: 1em;
 }
 
 /* ----------------- Sélecteur "Par défaut" / "Personnalisé" ----------------- */
-/* Radios natives, entièrement restylées en cartes sélectionnables,
-   dans l'esprit de .sl-item / .sl-item-checkbox déjà utilisés ailleurs. */
 
 .zp-radio-group {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 6px;
 }
 
 .zp-radio {
@@ -232,7 +375,6 @@
   box-shadow: inset 0 0 0 1px #2563eb;
 }
 
-/* Radio native cachée visuellement mais toujours accessible au clavier */
 .zp-radio__input {
   position: absolute;
   width: 1px;
@@ -245,7 +387,6 @@
   border: 0;
 }
 
-/* Pastille visuelle façon .sl-item-checkbox, mais ronde (radio) */
 .zp-radio__visual {
   flex: 0 0 auto;
   width: 18px;
@@ -287,15 +428,15 @@
 }
 
 .zp-radio__label {
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 600;
   color: #222;
 }
 
 .zp-radio__desc {
-  font-size: 12px;
+  font-size: 13px;
   color: #777;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .zp-radio__input:checked ~ .zp-radio__texts .zp-radio__label {
@@ -308,8 +449,6 @@
   max-height: 0;
   opacity: 0;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
   border-left: 2px solid #bcd0ff;
   margin-left: 2px;
   transition: max-height 0.28s ease, opacity 0.2s ease, padding 0.28s ease;
@@ -318,14 +457,26 @@
 .zp-export-champs--open {
   max-height: 480px;
   opacity: 1;
-  padding: 4px 0 4px 14px;
+  padding: 8px 0 8px 14px;
   margin-bottom: 6px;
 }
 
 /* --------------------------- Responsive --------------------------- */
 
+/* En dessous de 620px, on repasse en une seule colonne pour ne pas
+   écraser le contenu des modules 01/02. */
+@media (max-width: 620px) {
+  .zp-rail {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 480px) {
   .zp-radio-group {
+    grid-template-columns: 1fr;
+  }
+  .zp-export-champs-grid,
+  .zp-mdp-grid {
     grid-template-columns: 1fr;
   }
   .zp-module__actions {

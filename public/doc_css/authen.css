@@ -1,0 +1,238 @@
+.za-root {
+  background: transparent !important;
+}
+.za-root .panel-body.za-body {
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.za-fond {
+  flex: 1;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(1100px 550px at 8% -12%, rgba(110, 170, 255, 0.30), transparent 62%),
+    radial-gradient(900px 520px at 105% 5%, rgba(170, 110, 255, 0.24), transparent 58%),
+    radial-gradient(700px 400px at 50% 115%, rgba(120, 200, 255, 0.16), transparent 60%),
+    linear-gradient(160deg, #f3f6ff 0%, #e8ebf6 45%, #eef2fb 100%);
+}
+
+.za-carte {
+  width: min(400px, 100%);
+  padding: 40px 34px 30px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 20px 45px rgba(30, 40, 80, 0.16),
+    0 4px 12px rgba(30, 40, 80, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  text-align: center;
+  color: #1a1d29;
+  animation: za-pop-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes za-pop-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.za-logo-wrap {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 20px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, rgba(91, 141, 239, 0.14), rgba(122, 91, 239, 0.08));
+  border: 1px solid rgba(91, 141, 239, 0.18);
+  box-shadow: 0 6px 16px rgba(91, 141, 239, 0.18);
+  overflow: hidden;
+}
+.za-logo {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+}
+.za-logo-mono {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #5b8def, #7a5bef);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.za-titre {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  color: #14151f;
+}
+.za-sous-titre {
+  margin: 0 0 26px;
+  font-size: 0.92rem;
+  color: rgba(40, 50, 70, 0.65);
+}
+
+.za-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+.za-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(40, 50, 70, 0.75);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.za-mdp-ligne {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.za-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 44px 13px 15px;
+  border-radius: 13px;
+  border: 1px solid rgba(20, 30, 60, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  color: #1a1d29;
+  font-size: 0.98rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.za-input::placeholder {
+  color: rgba(100, 110, 140, 0.5);
+}
+.za-input:focus {
+  border-color: rgba(91, 141, 239, 0.65);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(91, 141, 239, 0.15);
+}
+.za-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.za-input[aria-invalid="true"] {
+  border-color: rgba(217, 48, 37, 0.55);
+}
+.za-input--shake {
+  animation: za-shake 0.4s ease;
+  border-color: rgba(217, 48, 37, 0.7) !important;
+}
+@keyframes za-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+}
+
+.za-oeil {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(40, 50, 70, 0.55);
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.za-oeil:hover {
+  background: rgba(91, 141, 239, 0.1);
+  color: rgba(91, 141, 239, 0.9);
+}
+
+.za-error {
+  min-height: 1.1em;
+  margin: 2px 0 0;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: #d93025;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.za-error--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.za-btn {
+  position: relative;
+  margin-top: 8px;
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  border-radius: 13px;
+  font-size: 0.98rem;
+  font-weight: 650;
+  cursor: pointer;
+  color: #ffffff;
+  background: linear-gradient(135deg, #5b8def 0%, #7eb0ff 50%, #7a5bef 100%);
+  box-shadow: 0 10px 24px rgba(91, 130, 239, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, opacity 0.12s ease;
+}
+.za-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 12px 28px rgba(91, 130, 239, 0.45);
+}
+.za-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.za-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+.za-btn--loading {
+  color: transparent;
+}
+.za-btn--loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 2.5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: za-spin 0.7s linear infinite;
+}
+@keyframes za-spin {
+  to { transform: rotate(360deg); }
+}
+
+.za-pied {
+  margin: 22px 0 0;
+  font-size: 0.74rem;
+  color: rgba(40, 50, 70, 0.42);
+  letter-spacing: 0.03em;
+}

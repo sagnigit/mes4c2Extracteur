@@ -8,6 +8,7 @@ import {
     lireTransformeConserveur,
     PropositionsCE,
     sauvegarderTransformConserveur,
+    sauvegarderSsConserveur,
     TypeEpreuve,
     TypeExamen as TypeExamenConserveur,
     ValeurMediaEnvoi,
@@ -205,6 +206,9 @@ const construireZoneOuvertureCommune = (
     let enteteTitre: HTMLSpanElement;
     let zoneExportStatut: HTMLSpanElement;
     let boutonExport: HTMLButtonElement;
+    /** Champ éditable pour le ss manuel (nom de série envoyé à l'export). */
+    let inputSs: HTMLInputElement;
+    let indicateurSs: HTMLSpanElement;
 
     // --- Éléments de layout, créés une seule fois à la construction ---
     let zoneNavListe: HTMLDivElement;
@@ -220,6 +224,8 @@ const construireZoneOuvertureCommune = (
     let idCourant: string | null = null;
     let indexCourant = 0;
     let boutonsNav: HTMLButtonElement[] = [];
+    /** Dernière valeur ss connue (évite les sauvegardes inutiles). */
+    let ssCourant = '';
 
 const estVide = (valeur: any): boolean => {
     return valeur === undefined || valeur === null || (typeof valeur === 'string' && valeur.trim() === '');
@@ -655,7 +661,7 @@ const initialiserEtatDepuisTransforme = (
                     parIndex.set(zoneDef.id, { nature: 'nombre', valeur: Number(itemTrans.points ?? 0) });
                 } else if (zoneDef.natureTrans === 'liste') {
                     const props = itemTrans.propositions ?? {};
-                    const items: EtatZoneListeItem[] = (['A', 'B', 'C', 'D'] as const)
+                    let items: EtatZoneListeItem[] = (['A', 'B', 'C', 'D'] as const)
                         .filter((lettre) => props[lettre] !== undefined)
                         .map((lettre) => ({
                             id: genererId(),
@@ -663,6 +669,18 @@ const initialiserEtatDepuisTransforme = (
                             correcte: itemTrans.bonneReponse === lettre,
                             lettre,
                         }));
+                    // Transformé sans propositions (extrait vide) :
+                    // remplir A→D dans l'ordre pour activer l'export.
+                    const toutesVides = items.length === 0
+                        || items.every((it) => !it.texte || it.texte.trim() === '');
+                    if (toutesVides) {
+                        items = (['A', 'B', 'C', 'D'] as const).map((lettre) => ({
+                            id: genererId(),
+                            texte: `Proposition ${lettre}`,
+                            correcte: false,
+                            lettre,
+                        }));
+                    }
                     parIndex.set(zoneDef.id, { nature: 'liste', items });
                 }
             }
@@ -1420,6 +1438,80 @@ const selectionnerIndex = (index: number): void => {
     enteteTitre.className = 'affichage-embed-entete-titre';
     enteteEmbed.appendChild(enteteTitre);
 
+    // Champ "Nom du sujet (ss)" : saisie manuelle du libellé envoyé
+    // comme ss à l'export. Vide = génération auto via decouperSerieEtTest.
+    // Enregistré dans le JSON transformé dès la modification (blur / Enter),
+    // comme les propositions.
+    const zoneSs = document.createElement('div');
+    zoneSs.className = 'affichage-embed-ss';
+
+    const labelSs = document.createElement('label');
+    labelSs.className = 'affichage-embed-ss-label';
+    labelSs.textContent = 'Nom du sujet';
+    zoneSs.appendChild(labelSs);
+
+    inputSs = document.createElement('input');
+    inputSs.type = 'text';
+    inputSs.className = 'affichage-embed-ss-input';
+    inputSs.placeholder = 'Auto (depuis le titre)';
+    inputSs.setAttribute('spellcheck', 'false');
+    inputSs.setAttribute('autocomplete', 'off');
+    zoneSs.appendChild(inputSs);
+
+    indicateurSs = document.createElement('span');
+    indicateurSs.className = 'zed-statut-save';
+    zoneSs.appendChild(indicateurSs);
+
+    const definirStatutSs = (statut: StatutEnregistrement | null): void => {
+        indicateurSs.className = 'zed-statut-save';
+        if (!statut) { indicateurSs.textContent = ''; return; }
+        indicateurSs.classList.add(`zed-statut-save--${statut}`);
+        indicateurSs.textContent = statut === 'enregistrement'
+            ? 'Enregistrement...'
+            : statut === 'ok'
+                ? 'Enregistré ✓'
+                : "Échec de l'enregistrement";
+        if (statut === 'ok') {
+            setTimeout(() => {
+                indicateurSs.className = 'zed-statut-save';
+                indicateurSs.textContent = '';
+            }, 2200);
+        }
+    };
+
+    const enregistrerSsSiModifie = async (): Promise<void> => {
+        if (!idCourant) return;
+        const valeur = (inputSs.value ?? '').trim();
+        if (valeur === ssCourant) return;
+        definirStatutSs('enregistrement');
+        try {
+            const resultat = await sauvegarderSsConserveur(
+                examenCourant,
+                typeCourant,
+                idCourant,
+                valeur
+            );
+            if (resultat.success) {
+                ssCourant = valeur;
+                definirStatutSs('ok');
+            } else {
+                definirStatutSs('erreur');
+            }
+        } catch {
+            definirStatutSs('erreur');
+        }
+    };
+
+    inputSs.addEventListener('blur', () => { void enregistrerSsSiModifie(); });
+    inputSs.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            inputSs.blur();
+        }
+    });
+
+    enteteEmbed.appendChild(zoneSs);
+
     // Indicateur d'exportabilité : reste vide (rien de visible) tant
     // que toutes les questions de la série ouverte ne sont pas prêtes
     // à l'exportation ; sinon affiche combien il en reste à corriger
@@ -1532,10 +1624,23 @@ const selectionnerIndex = (index: number): void => {
         // à ce stade : il est créé, s'il manquait, au lancement de
         // l'application — voir genererTransformationsManquantes dans
         // conserveurDonne.ts / main.ts).
+        // ss manuel : si absent du JSON, le champ reste vide (génération
+        // auto à l'export via decouperSerieEtTest).
+        ssCourant = '';
+        inputSs.value = '';
         try {
             const resultat = await lireTransformeConserveur(examenSerie, type, id);
             if (resultat.success) {
                 initialiserEtatDepuisTransforme(type, donnees, resultat.transforme);
+                // ss renvoyé en champ séparé par l'IPC (pas en propriété
+                // du tableau transforme, perdue à la sérialisation).
+                const ssLu = typeof (resultat as any).ss === 'string'
+                    ? String((resultat as any).ss).trim()
+                    : (typeof (resultat.transforme as any)?.ss === 'string'
+                        ? String((resultat.transforme as any).ss).trim()
+                        : '');
+                ssCourant = ssLu;
+                inputSs.value = ssLu;
             }
         } catch {
             // En cas d'échec de lecture, les zones repartent simplement vides.

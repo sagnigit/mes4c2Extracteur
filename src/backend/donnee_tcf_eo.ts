@@ -133,7 +133,7 @@ export function listerCartesTcfEo(): CarteTcfEo[] {
 /** Lit l'extrait ET le transformé d'un dossier tcf_eo (identifié par l'id du lien). */
 export async function lireDonneeTcfEo(
     idLien: string
-): Promise<{ success: boolean; extrait?: PartieEO[]; transforme?: PartieEO[]; error?: string }> {
+): Promise<{ success: boolean; extrait?: PartieEO[]; transforme?: PartieEO[]; ss?: string; error?: string }> {
     chargeRef();
     const dossier = getRef(racineChemin)[idLien];
     if (!dossier) return { success: false, error: 'Donnée introuvable.' };
@@ -146,11 +146,21 @@ export async function lireDonneeTcfEo(
         const extrait: PartieEO[] = (await existeChemin(cheminExtrait))
             ? JSON.parse(await fsp.readFile(cheminExtrait, 'utf-8'))
             : [];
-        const transforme: PartieEO[] = (await existeChemin(cheminTrans))
+        let parseTrans: any = (await existeChemin(cheminTrans))
             ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
             : extrait;
+        const transforme: PartieEO[] = Array.isArray(parseTrans)
+            ? parseTrans
+            : Array.isArray(parseTrans?.items)
+                ? parseTrans.items
+                : Array.isArray(extrait)
+                    ? extrait
+                    : [];
+        const ss = !Array.isArray(parseTrans) && typeof parseTrans?.ss === 'string'
+            ? parseTrans.ss.trim()
+            : '';
 
-        return { success: true, extrait, transforme };
+        return { success: true, extrait, transforme, ss };
     } catch (err: any) {
         return { success: false, error: err?.message ?? String(err) };
     }
@@ -161,14 +171,47 @@ export async function lireDonneeTcfEo(
 // ---------------------------------------------------------------------
 
 /**
+ * Fusionne un nouvel extrait avec le transformé déjà édité (même logique
+ * que TCF EE) : conserve les éditions (même nomPartie), ajoute les
+ * nouvelles parties de l'extrait.
+ */
+function fusionnerTransformeAvecExtraitEo(
+    partiesExtrait: PartieEO[],
+    partiesTrans: PartieEO[]
+): PartieEO[] {
+    const parNom = new Map<string, PartieEO>();
+    for (const p of partiesTrans) {
+        const cle = (p.nomPartie ?? '').trim();
+        if (cle) parNom.set(cle, p);
+    }
+
+    return partiesExtrait.map((partie, index) => {
+        const cle = (partie.nomPartie ?? '').trim();
+        const existante = (cle ? parNom.get(cle) : undefined) ?? partiesTrans[index];
+        if (!existante) {
+            return {
+                nomPartie: partie.nomPartie,
+                tache2: [...(partie.tache2 ?? [])],
+                tache3: [...(partie.tache3 ?? [])],
+            };
+        }
+        return {
+            nomPartie: partie.nomPartie ?? existante.nomPartie,
+            tache2: Array.isArray(existante.tache2) ? [...existante.tache2] : [...(partie.tache2 ?? [])],
+            tache3: Array.isArray(existante.tache3) ? [...existante.tache3] : [...(partie.tache3 ?? [])],
+        };
+    });
+}
+
+/**
  * Enregistre une extraction EO pour un lien précis (voir
  * creerGestionnaireDonneeEO, dans outi_exract.ts) :
  *  - le lien n'avait pas encore de dossier -> il est créé, avec son
  *    extrait ET son transformé (copie initiale de l'extrait, à éditer
  *    ensuite depuis l'accueil) ;
- *  - le lien avait déjà un dossier -> seul l'extrait est mis à
- *    jour ; le transformé existant (avec d'éventuelles modifications
- *    déjà faites par l'utilisateur) n'est JAMAIS écrasé.
+ *  - le lien avait déjà un dossier -> l'extrait est mis à jour, et le
+ *    transformé est fusionné : parties déjà éditées conservées (même
+ *    nomPartie), nouvelles combinaisons de l'extrait ajoutées.
  */
 export async function enregistrerDonneeTcfEo(
     idLien: string,
@@ -198,12 +241,28 @@ export async function enregistrerDonneeTcfEo(
             'utf-8'
         );
 
+        const cheminTrans = path.join(cheminDossier, NOM_FICHIER_TRANS);
         if (cree) {
-            await fsp.writeFile(
-                path.join(cheminDossier, NOM_FICHIER_TRANS),
-                JSON.stringify(parties, null, 2),
-                'utf-8'
-            );
+            await fsp.writeFile(cheminTrans, JSON.stringify(parties, null, 2), 'utf-8');
+        } else {
+            let partiesTransExistantes: PartieEO[] = [];
+            let ssExistant = '';
+            if (await existeChemin(cheminTrans)) {
+                try {
+                    const lu = JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'));
+                    if (Array.isArray(lu)) {
+                        partiesTransExistantes = lu;
+                    } else if (lu && typeof lu === 'object') {
+                        partiesTransExistantes = Array.isArray(lu.items) ? lu.items : [];
+                        ssExistant = typeof lu.ss === 'string' ? lu.ss.trim() : '';
+                    }
+                } catch {
+                    partiesTransExistantes = [];
+                }
+            }
+            const fusion = fusionnerTransformeAvecExtraitEo(parties, partiesTransExistantes);
+            const aEcrire = ssExistant ? { ss: ssExistant, items: fusion } : fusion;
+            await fsp.writeFile(cheminTrans, JSON.stringify(aEcrire, null, 2), 'utf-8');
         }
 
         return { success: true, cree, dossier };
@@ -222,11 +281,43 @@ export async function sauvegarderTransformeTcfEo(
     if (!dossier) return { success: false, error: 'Donnée introuvable.' };
 
     try {
-        await fsp.writeFile(
-            path.join(dossierConserveur, dossier, NOM_FICHIER_TRANS),
-            JSON.stringify(parties, null, 2),
-            'utf-8'
-        );
+        const cheminTrans = path.join(dossierConserveur, dossier, NOM_FICHIER_TRANS);
+        let ssExistant = '';
+        if (await existeChemin(cheminTrans)) {
+            try {
+                const parse = JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'));
+                if (!Array.isArray(parse) && typeof parse?.ss === 'string') ssExistant = parse.ss.trim();
+            } catch { /* */ }
+        }
+        const aEcrire = ssExistant ? { ss: ssExistant, items: parties } : parties;
+        await fsp.writeFile(cheminTrans, JSON.stringify(aEcrire, null, 2), 'utf-8');
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+    }
+}
+
+/** Enregistre uniquement le ss manuel dans trans_eo.json. */
+export async function sauvegarderSsTcfEo(
+    idLien: string,
+    ss: string
+): Promise<{ success: boolean; error?: string }> {
+    chargeRef();
+    const dossier = getRef(racineChemin)[idLien];
+    if (!dossier) return { success: false, error: 'Donnée introuvable.' };
+    try {
+        const cheminTrans = path.join(dossierConserveur, dossier, NOM_FICHIER_TRANS);
+        let brut: any = (await existeChemin(cheminTrans))
+            ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
+            : [];
+        const items: PartieEO[] = Array.isArray(brut)
+            ? brut
+            : Array.isArray(brut?.items)
+                ? brut.items
+                : [];
+        const ssNettoye = (ss ?? '').trim();
+        const aEcrire = ssNettoye ? { ss: ssNettoye, items } : items;
+        await fsp.writeFile(cheminTrans, JSON.stringify(aEcrire, null, 2), 'utf-8');
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err?.message ?? String(err) };
@@ -252,9 +343,16 @@ export async function recupererTransformeEtCheminTcfEo(
         const cheminDossier = path.join(dossierConserveur, dossier);
         const cheminTrans = path.join(cheminDossier, NOM_FICHIER_TRANS);
 
-        const transforme: PartieEO[] = (await existeChemin(cheminTrans))
+        let brut: any = (await existeChemin(cheminTrans))
             ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
             : [];
+        let transforme: PartieEO[] = Array.isArray(brut)
+            ? brut
+            : Array.isArray(brut?.items)
+                ? brut.items
+                : [];
+        const ss = !Array.isArray(brut) && typeof brut?.ss === 'string' ? brut.ss.trim() : '';
+        if (ss) (transforme as any).ss = ss;
 
         return { success: true, cheminDossier, transforme };
     } catch (err: any) {

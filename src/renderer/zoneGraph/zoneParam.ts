@@ -3,22 +3,23 @@
 // Panel "Paramètres" — panel normal (entête + bouton retour), ouvert
 // depuis le menu de zoneAccueil.
 //
-// Le corps du panel contient 3 zones empilées :
-//   01 — Mise à jour totale de l'application
-//   02 — Mise à jour des codes d'injection
-//   03 — Mode d'exportation (Par défaut / Personnalisé)
+// Le corps du panel contient 4 zones :
+//   01 — Mise à jour totale de l'application        )  côte à côte
+//   02 — Mise à jour des codes d'injection           )  (grille 2 colonnes)
+//   03 — Mode d'exportation (Par défaut / Personnalisé) — pleine largeur
+//   04 — Modification du mot de passe                   — pleine largeur
 //
 // Toute la construction du contenu passe par UNE fonction unique :
 // renderZoneParam(container)
 //   - vide entièrement le div reçu en paramètre (bodyParam)
 //   - y insère un nouveau div qui prend tout l'espace et contient
-//     les 3 blocs décrits ci-dessus
-// Cette même fonction est rebranchée sur chaque bouton "Valider" : au
-// clic, la zone est simplement vidée puis reconstruite.
+//     les 4 blocs décrits ci-dessus, organisés en grille pour limiter
+//     le scroll vertical.
 
 import { Panel } from '../composer/Panel.js';
 import { demanderMiseAJour } from './updateEcoute.js';
 import { demanderMajCodesExtraction } from './majCodesEcoute.js';
+import { typeErreur, typeReussite, creerMessage } from './gestionMessage.js';
 
 type ExportMode = 'defaut' | 'personnalise';
 
@@ -116,7 +117,7 @@ function buildUpdateModule(): HTMLElement {
     const hint = el(
         'p',
         'zp-module__hint',
-        'La mise à jour totale remplace les fichiers actuels par la dernière version stable.'
+        'Remplace les fichiers actuels par la dernière version stable.'
     );
 
     const actions = el('div', 'zp-module__actions');
@@ -138,13 +139,13 @@ function buildInjectionModule(): HTMLElement {
     const { module, body } = createModule(
         '02',
         'Codes d’injection',
-        'Récupère et exécute les derniers scripts d’injection depuis le serveur.'
+        'Récupère les derniers scripts d’injection depuis le serveur.'
     );
 
     const hint = el(
         'p',
         'zp-module__hint',
-        'Aucune saisie n’est nécessaire : les codes sont récupérés en ligne au moment de l’exécution.'
+        'Aucune saisie nécessaire : les codes sont récupérés au moment de l’exécution.'
     );
 
     const actions = el('div', 'zp-module__actions');
@@ -269,6 +270,7 @@ async function chargerReferencesExport(
         appliquerModeVisuel(mode, champsPersonnalises);
     } catch (erreur) {
         console.error('Impossible de récupérer les références de paramètres :', erreur);
+        creerMessage(typeErreur, 'Paramètres', 'Impossible de charger les références d’export.');
     }
 }
 
@@ -276,8 +278,10 @@ function buildExportModule(): HTMLElement {
     const { module, body } = createModule(
         '03',
         'Mode d’exportation',
-        'Choisis si l’export utilise la destination par défaut ou une destination que tu définis toi-même.'
+        'Destination automatique ou personnalisée pour l’export.'
     );
+    // Contient plusieurs champs : garde toute la largeur du panel.
+    module.classList.add('zp-module--full');
 
     const groupName = 'zp-export-mode';
     const optionDefaut = createRadioOption(
@@ -297,6 +301,8 @@ function buildExportModule(): HTMLElement {
     radioGroup.append(optionDefaut.wrapper, optionPersonnalise.wrapper);
 
     const champsPersonnalises = el('div', 'zp-export-champs');
+    // Sous-grille : les 3 liens tiennent côte à côte quand la largeur le permet.
+    champsPersonnalises.classList.add('zp-export-champs-grid');
 
     const tcf = createField('Lien d’exportation TCF', 'https://…');
     const tef = createField('Lien d’exportation TEF', 'https://…');
@@ -334,6 +340,192 @@ function buildExportModule(): HTMLElement {
 }
 
 /* ------------------------------------------------------------------ */
+/* Zone 04 — Modification du mot de passe                             */
+/* ------------------------------------------------------------------ */
+
+/** Un champ mot de passe avec label, œil afficher/masquer et zone d'erreur. */
+function creerChampMdp(
+    labelText: string,
+    id: string
+): { wrap: HTMLElement; input: HTMLInputElement; erreur: HTMLElement } {
+    const wrap = el('div', 'zp-field');
+
+    const lab = el('label', 'zp-label', labelText);
+    lab.setAttribute('for', id);
+
+    const ligne = el('div', 'zp-mdp-ligne');
+
+    const input = document.createElement('input');
+    input.type = 'password';
+    input.id = id;
+    input.className = 'zp-input';
+    input.autocomplete = 'new-password';
+    input.spellcheck = false;
+
+    const erreur = el('span', 'zp-field-erreur');
+    erreur.id = `${id}-erreur`;
+    erreur.setAttribute('role', 'alert');
+    erreur.setAttribute('hidden', '');
+    input.setAttribute('aria-describedby', erreur.id);
+
+    const btnOeil = document.createElement('button');
+    btnOeil.type = 'button';
+    btnOeil.className = 'zp-oeil iconMateriel';
+    btnOeil.title = 'Afficher le mot de passe';
+    btnOeil.setAttribute('aria-label', 'Afficher le mot de passe');
+    btnOeil.textContent = 'visibility';
+    btnOeil.addEventListener('click', () => {
+        const visible = input.type === 'text';
+        input.type = visible ? 'password' : 'text';
+        btnOeil.textContent = visible ? 'visibility' : 'visibility_off';
+        btnOeil.title = visible ? 'Afficher le mot de passe' : 'Masquer le mot de passe';
+        btnOeil.setAttribute(
+            'aria-label',
+            visible ? 'Afficher le mot de passe' : 'Masquer le mot de passe'
+        );
+        input.focus();
+    });
+
+    ligne.append(input, btnOeil);
+    wrap.append(lab, ligne, erreur);
+
+    return { wrap, input, erreur };
+}
+
+function afficherErreurChamp(input: HTMLInputElement, erreur: HTMLElement, texte: string): void {
+    erreur.textContent = texte;
+    erreur.removeAttribute('hidden');
+    input.classList.add('zp-input--erreur');
+    input.setAttribute('aria-invalid', 'true');
+}
+
+function effacerErreurChamp(input: HTMLInputElement, erreur: HTMLElement): void {
+    erreur.textContent = '';
+    erreur.setAttribute('hidden', '');
+    input.classList.remove('zp-input--erreur');
+    input.removeAttribute('aria-invalid');
+}
+
+function buildMotDePasseModule(): HTMLElement {
+    const { module, body } = createModule(
+        '04',
+        'Mot de passe',
+        'Modifier le mot de passe d’accès (enregistré localement).'
+    );
+    // Contient plusieurs champs : garde toute la largeur du panel.
+    module.classList.add('zp-module--full');
+
+    const ancien = creerChampMdp('Ancien mot de passe', 'zp-mdp-ancien');
+    const nouveau = creerChampMdp('Nouveau mot de passe', 'zp-mdp-nouveau');
+    const confirm = creerChampMdp('Confirmer le nouveau', 'zp-mdp-confirm');
+
+    // Sous-grille : les 3 champs tiennent côte à côte quand la largeur le permet.
+    const champsMdp = el('div', 'zp-mdp-grid');
+    champsMdp.append(ancien.wrap, nouveau.wrap, confirm.wrap);
+
+    // L'erreur du champ disparaît dès qu'on retape dedans
+    [ancien, nouveau, confirm].forEach(({ input, erreur }) => {
+        input.addEventListener('input', () => effacerErreurChamp(input, erreur));
+    });
+
+    const actions = el('div', 'zp-actions');
+    const btnEnregistrer = createButton('Enregistrer', 'primary', () => {
+        void soumettreMotDePasse();
+    });
+    actions.appendChild(btnEnregistrer);
+
+    let enCours = false;
+
+    const definirEtatChargement = (actif: boolean): void => {
+        btnEnregistrer.disabled = actif;
+        [ancien.input, nouveau.input, confirm.input].forEach((i) => (i.disabled = actif));
+        btnEnregistrer.classList.toggle('zp-btn--loading', actif);
+        btnEnregistrer.textContent = actif ? 'Enregistrement…' : 'Enregistrer';
+    };
+
+    const validerFormulaire = (): boolean => {
+        let ok = true;
+
+        const valAncien = ancien.input.value.trim();
+        const valNouveau = nouveau.input.value.trim();
+        const valConfirm = confirm.input.value.trim();
+
+        if (!valAncien) {
+            afficherErreurChamp(ancien.input, ancien.erreur, 'Champ requis.');
+            ok = false;
+        }
+        if (!valNouveau) {
+            afficherErreurChamp(nouveau.input, nouveau.erreur, 'Champ requis.');
+            ok = false;
+        } else if (valNouveau.length < 4) {
+            afficherErreurChamp(nouveau.input, nouveau.erreur, '4 caractères minimum.');
+            ok = false;
+        }
+        if (!valConfirm) {
+            afficherErreurChamp(confirm.input, confirm.erreur, 'Champ requis.');
+            ok = false;
+        } else if (valNouveau && valConfirm !== valNouveau) {
+            afficherErreurChamp(confirm.input, confirm.erreur, 'Ne correspond pas au nouveau mot de passe.');
+            ok = false;
+        }
+
+        return ok;
+    };
+
+    const soumettreMotDePasse = async (): Promise<void> => {
+        if (enCours) return;
+
+        [ancien, nouveau, confirm].forEach(({ input, erreur }) => effacerErreurChamp(input, erreur));
+
+        if (!validerFormulaire()) {
+            const premier = [ancien, nouveau, confirm].find(
+                ({ input }) => input.classList.contains('zp-input--erreur')
+            );
+            premier?.input.focus();
+            return;
+        }
+
+        const payload = {
+            ancien: ancien.input.value.trim(),
+            nouveau: nouveau.input.value.trim(),
+        };
+
+        enCours = true;
+        definirEtatChargement(true);
+
+        try {
+            const res = (await window.api.invoke('auth:modifier', payload)) as {
+                success?: boolean;
+                error?: string;
+            };
+
+            if (res?.success) {
+                ancien.input.value = '';
+                nouveau.input.value = '';
+                confirm.input.value = '';
+                creerMessage(typeReussite, 'Mot de passe', 'Mot de passe mis à jour.');
+            } else {
+                const message = res?.error ?? 'Ancien mot de passe incorrect.';
+                afficherErreurChamp(ancien.input, ancien.erreur, message);
+                ancien.input.value = '';
+                ancien.input.focus();
+                creerMessage(typeErreur, 'Mot de passe', message);
+            }
+        } catch (err: any) {
+            const message = err?.message ?? 'Échec de la modification du mot de passe.';
+            afficherErreurChamp(ancien.input, ancien.erreur, message);
+            creerMessage(typeErreur, 'Mot de passe', message);
+        } finally {
+            enCours = false;
+            definirEtatChargement(false);
+        }
+    };
+
+    body.append(champsMdp, actions);
+    return module;
+}
+
+/* ------------------------------------------------------------------ */
 /* Fonction commune — vide le container et reconstruit tout            */
 /* ------------------------------------------------------------------ */
 
@@ -341,13 +533,15 @@ const renderZoneParam = (container: HTMLElement): void => {
     // 1. On vide entièrement le div reçu en paramètre (bodyParam)
     container.innerHTML = '';
 
-    // 2. On crée un nouveau div qui prend tout l'espace et contient les 3 zones
+    // 2. On crée un nouveau div qui prend tout l'espace et contient les zones,
+    //    organisées en grille (voir .zp-rail en CSS) pour limiter le scroll.
     const wrapper = el('div', 'zp-panel');
 
     const rail = el('div', 'zp-rail');
     rail.appendChild(buildUpdateModule());
     rail.appendChild(buildInjectionModule());
     rail.appendChild(buildExportModule());
+    rail.appendChild(buildMotDePasseModule());
     wrapper.appendChild(rail);
 
     container.appendChild(wrapper);

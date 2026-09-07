@@ -38,7 +38,7 @@ export const listerTcfCe = (): Promise<CarteTcfCe[]> => {
 /** Lit l'extrait ET le transformé d'une carte TCF CE (par id de lien). */
 export const lireTcfCe = (
     idLien: string
-): Promise<{ success: boolean; extrait?: QuestionCE[]; transforme?: QuestionCE[]; error?: string }> => {
+): Promise<{ success: boolean; extrait?: QuestionCE[]; transforme?: QuestionCE[]; ss?: string; error?: string }> => {
     return window.api.invoke('tcf-ce:read', idLien);
 };
 

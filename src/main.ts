@@ -32,6 +32,7 @@ import {
     sauvegarderTransformCeOuCo as sauvegarderTransformCeOuCoConserveur,
     sauvegarderTransformEE as sauvegarderTransformEEConserveur,
     sauvegarderTransformEO as sauvegarderTransformEOConserveur,
+    sauvegarderSsTransform as sauvegarderSsTransformConserveur,
     genererTransformationsManquantes as genererTransformationsManquantesConserveur,
     synchroniserRefsDepuisDisque,
     supprimerSerie as supprimerSerieConserveur,
@@ -57,6 +58,7 @@ import {
     listerCartesTcfEo,
     lireDonneeTcfEo,
     sauvegarderTransformeTcfEo,
+    sauvegarderSsTcfEo,
     supprimerDonneeTcfEo,
 } from './backend/donnee_tcf_eo.js';
 // TCF EE suit exactement le même principe (voir donnee_tcf_ee.ts).
@@ -64,6 +66,7 @@ import {
     listerCartesTcfEe,
     lireDonneeTcfEe,
     sauvegarderTransformeTcfEe,
+    sauvegarderSsTcfEe,
     supprimerDonneeTcfEe,
 } from './backend/donnee_tcf_ee.js';
 // TCF CE suit lui aussi ce même principe (voir donnee_tcf_ce.ts) : un
@@ -74,6 +77,7 @@ import {
     listerCartesTcfCe,
     lireDonneeTcfCe,
     sauvegarderTransformeTcfCe,
+    sauvegarderSsTcfCe,
     enregistrerImageEnonceTcfCe,
     supprimerDonneeTcfCe,
 } from './backend/donnee_tcf_ce.js';
@@ -86,9 +90,10 @@ import {
     lireCoupleAffichageTcfCo,
     lireTransformeAffichageTcfCo,
     sauvegarderTransformePartielTcfCo,
+    sauvegarderSsTcfCo,
     supprimerDonneeTcfCo,
 } from './backend/donnee_tcf_co.js';
-
+import { initAuth } from './backend/gestionAuth.js';
 
 // Recréation de __filename et __dirname en ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -150,8 +155,6 @@ function createWindow() {
     const minLarg = 1100;
     const minHaut = 650;
     mainWindow = new BrowserWindow({
-        width: minLarg,
-        height: minHaut,
         minWidth: minLarg,
         minHeight: minHaut,
         frame: false, // supprime la barre de titre par défaut
@@ -163,11 +166,16 @@ function createWindow() {
         title: "Mes4C2 - Extracteur",
         icon: path.join(__dirname, "../public/assets/logo.ico")
     });
+    mainWindow.maximize();
 
     const nomFichierHtml = path.join(__dirname, '../public/index.html');
 
     // Charger le fichier index.html
     mainWindow.loadFile(nomFichierHtml);
+
+    clearAllPartionStorage();
+    // dans app.whenReady() (ou juste après createWindow) :
+    initAuth();
 
     //chargement des reference pour la gstion des creation et recuperation des dosier et autre
     chargeRef();
@@ -226,10 +234,10 @@ function createWindow() {
     });
 
     //pour la suppression des session des cites d'extractions
-     ipcMain.handle("lienExtract:efface_cookie", async (_event, arg) => {
-       await clearAllPartionStorage(PARTITION_EXTRACTION);
+    ipcMain.handle("lienExtract:efface_cookie", async (_event, arg) => {
+        await clearAllPartionStorage(PARTITION_EXTRACTION);
         return true;
-     });
+    });
 
     // --- IPC : affichage de l'accueil (dossier "conserveur", voir
     // conserveurDonne.ts) — seule source de données désormais utilisée
@@ -292,6 +300,20 @@ function createWindow() {
                 return sauvegarderTransformEEConserveur(args.id, args.donnees);
             }
             return sauvegarderTransformEOConserveur(args.id, args.donnees);
+        }
+    );
+
+    // Enregistre uniquement le ss manuel (nom de série) dans le JSON transformé.
+    ipcMain.handle(
+        'conserveur:save-ss',
+        async (_event, args: { examen?: 'tef' | 'tcf'; type: TypeEpreuve; id: string; ss: string }) => {
+            if (args.examen === 'tcf') {
+                if (args.type === 'ce') return sauvegarderSsTcfCe(args.id, args.ss);
+                if (args.type === 'co') return sauvegarderSsTcfCo(args.id, args.ss);
+                if (args.type === 'ee') return sauvegarderSsTcfEe(args.id, args.ss);
+                if (args.type === 'eo') return sauvegarderSsTcfEo(args.id, args.ss);
+            }
+            return sauvegarderSsTransformConserveur(args.type, args.id, args.ss);
         }
     );
 
@@ -438,7 +460,6 @@ if (!gotTheLock) {
         if (mainWindow) {
             arreterTachesDeFenetre(mainWindow);
         }
-        await clearAllPartionStorage();
     });
 }
 /*

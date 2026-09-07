@@ -338,16 +338,29 @@ async function genererTransformDepuisExtrait(
       }
     }
 
-    const textes = (q.options ?? []).slice(0, 4);
+    const textes = (q.options ?? []).slice(0, 4).map((t) => (t != null ? String(t) : ''));
     while (textes.length < 4) textes.push('');
-    const lettres = melangerLettres(['A', 'B', 'C', 'D']) as Array<keyof PropositionsCO>;
-    const propositions: PropositionsCO = { A: '', B: '', C: '', D: '' };
+
+    // Extrait sans propositions : A→D dans l'ordre avec "Proposition A"…"D".
+    const aucunTexte = textes.every((t) => t.trim() === '');
+    let propositions: PropositionsCO;
     let bonneReponse: 'A' | 'B' | 'C' | 'D' | '' = '';
-    textes.forEach((texte, idx) => {
-      const lettre = lettres[idx];
-      propositions[lettre] = texte;
-      if (idx === q.correctAnswerIndex) bonneReponse = lettre;
-    });
+    if (aucunTexte) {
+      propositions = {
+        A: 'Proposition A',
+        B: 'Proposition B',
+        C: 'Proposition C',
+        D: 'Proposition D',
+      };
+    } else {
+      const lettres = melangerLettres(['A', 'B', 'C', 'D']) as Array<keyof PropositionsCO>;
+      propositions = { A: '', B: '', C: '', D: '' };
+      textes.forEach((texte, idx) => {
+        const lettre = lettres[idx];
+        propositions[lettre] = texte;
+        if (idx === q.correctAnswerIndex) bonneReponse = lettre;
+      });
+    }
 
     out.push({
       index: i,
@@ -550,6 +563,8 @@ export async function lireCoupleAffichageTcfCo(idLien: string): Promise<{
   success: boolean;
   extrait?: ElementAffichageTcfCo[];
   transforme?: Array<ItemTransformTcfCo & { _localImage: string; _localAudio: string }>;
+  /** ss manuel éventuel (champ séparé, pas propriété du tableau). */
+  ss?: string;
   error?: string;
 }> {
   chargeRef();
@@ -582,9 +597,17 @@ export async function lireCoupleAffichageTcfCo(idLien: string): Promise<{
       };
     });
 
-    const transformeBrut: ItemTransformTcfCo[] = (await existeChemin(cheminTrans))
+    let parseTrans: any = (await existeChemin(cheminTrans))
       ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
       : [];
+    const transformeBrut: ItemTransformTcfCo[] = Array.isArray(parseTrans)
+      ? parseTrans
+      : Array.isArray(parseTrans?.items)
+        ? parseTrans.items
+        : [];
+    const ssTrans = !Array.isArray(parseTrans) && typeof parseTrans?.ss === 'string'
+      ? parseTrans.ss.trim()
+      : '';
 
     const transforme = transformeBrut.map((item) => ({
       ...item,
@@ -592,7 +615,7 @@ export async function lireCoupleAffichageTcfCo(idLien: string): Promise<{
       _localAudio: versFileUrl(cheminDossier, item.audio),
     }));
 
-    return { success: true, extrait, transforme };
+    return { success: true, extrait, transforme, ss: ssTrans };
   } catch (err: any) {
     return { success: false, error: err?.message ?? String(err) };
   }
@@ -601,10 +624,10 @@ export async function lireCoupleAffichageTcfCo(idLien: string): Promise<{
 /** Lit uniquement le transformé (format d'affichage) — préchargement à l'ouverture d'une carte. */
 export async function lireTransformeAffichageTcfCo(
   idLien: string
-): Promise<{ success: boolean; transforme?: Array<ItemTransformTcfCo & { _localImage: string; _localAudio: string }>; error?: string }> {
+): Promise<{ success: boolean; transforme?: Array<ItemTransformTcfCo & { _localImage: string; _localAudio: string }>; ss?: string; error?: string }> {
   const resultat = await lireCoupleAffichageTcfCo(idLien);
   if (!resultat.success) return { success: false, error: resultat.error };
-  return { success: true, transforme: resultat.transforme };
+  return { success: true, transforme: resultat.transforme, ss: (resultat as any).ss ?? '' };
 }
 
 /**
@@ -634,10 +657,16 @@ export async function sauvegarderTransformePartielTcfCo(
     const fichierJson = path.join(cheminDossier, NOM_FICHIER_TRANS);
 
     let existant: ItemTransformTcfCo[] = [];
+    let ssExistant = '';
     if (await existeChemin(fichierJson)) {
       try {
         const parse = JSON.parse(await fsp.readFile(fichierJson, 'utf-8'));
-        existant = Array.isArray(parse) ? parse : [];
+        if (Array.isArray(parse)) {
+          existant = parse;
+        } else if (parse && typeof parse === 'object') {
+          existant = Array.isArray(parse.items) ? parse.items : [];
+          ssExistant = typeof parse.ss === 'string' ? parse.ss.trim() : '';
+        }
       } catch {
         existant = [];
       }
@@ -685,7 +714,8 @@ export async function sauvegarderTransformePartielTcfCo(
     }
 
     const resultatFinal = Array.from(parIndex.values()).sort((a, b) => a.index - b.index);
-    await fsp.writeFile(fichierJson, JSON.stringify(resultatFinal, null, 2), 'utf-8');
+    const aEcrire = ssExistant ? { ss: ssExistant, items: resultatFinal } : resultatFinal;
+    await fsp.writeFile(fichierJson, JSON.stringify(aEcrire, null, 2), 'utf-8');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message ?? String(err) };
@@ -712,11 +742,45 @@ export async function recupererTransformeEtCheminTcfCo(
     const cheminDossier = path.join(dossierConserveur, dossier);
     const cheminTrans = path.join(cheminDossier, NOM_FICHIER_TRANS);
 
-    const transforme: ItemTransformTcfCo[] = (await existeChemin(cheminTrans))
+    let brut: any = (await existeChemin(cheminTrans))
       ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
       : [];
+    let transforme: ItemTransformTcfCo[] = Array.isArray(brut)
+      ? brut
+      : Array.isArray(brut?.items)
+        ? brut.items
+        : [];
+    const ss = !Array.isArray(brut) && typeof brut?.ss === 'string' ? brut.ss.trim() : '';
+    if (ss) (transforme as any).ss = ss;
 
     return { success: true, cheminDossier, transforme };
+  } catch (err: any) {
+    return { success: false, error: err?.message ?? String(err) };
+  }
+}
+
+/** Enregistre uniquement le ss manuel dans trans_co.json (préserve les items). */
+export async function sauvegarderSsTcfCo(
+  idLien: string,
+  ss: string
+): Promise<{ success: boolean; error?: string }> {
+  chargeRef();
+  const dossier = getRef(racineChemin)[idLien];
+  if (!dossier) return { success: false, error: 'Donnée introuvable.' };
+  try {
+    const cheminTrans = path.join(dossierConserveur, dossier, NOM_FICHIER_TRANS);
+    let brut: any = (await existeChemin(cheminTrans))
+      ? JSON.parse(await fsp.readFile(cheminTrans, 'utf-8'))
+      : [];
+    const items: ItemTransformTcfCo[] = Array.isArray(brut)
+      ? brut
+      : Array.isArray(brut?.items)
+        ? brut.items
+        : [];
+    const ssNettoye = (ss ?? '').trim();
+    const aEcrire = ssNettoye ? { ss: ssNettoye, items } : items;
+    await fsp.writeFile(cheminTrans, JSON.stringify(aEcrire, null, 2), 'utf-8');
+    return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message ?? String(err) };
   }

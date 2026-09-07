@@ -1,3 +1,20 @@
+# Dépendances
 node_modules/
+
+# Builds et distributions
 dist/
+build/
+release/
+
+# Dossiers spécifiques
 orCode/
+
+# Config locale VS Code
+.vscode/
+
+# Logs
+*.log
+
+# OS spécifiques
+.DS_Store
+Thumbs.db

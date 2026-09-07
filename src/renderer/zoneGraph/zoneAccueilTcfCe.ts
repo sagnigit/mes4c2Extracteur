@@ -38,6 +38,7 @@ import {
     enregistrerImageEnonceTcfCe,
     supprimerTcfCe,
 } from './donneeTcfCeApi.js';
+import { sauvegarderSsConserveur } from './donneeApi.js';
 
 /**
  * Construit le corps de la page TCF · CE : zone à droite (une carte
@@ -69,20 +70,29 @@ export const remplirZoneTcfCe = async (page: HTMLDivElement): Promise<void> => {
         let ouvrirPremiereCarte: (() => void) | null = null;
 
         for (const infoCarte of cartes) {
-            const resultat = await lireTcfCe(infoCarte.id);
-            const extrait = resultat.success ? (resultat.extrait ?? []) : [];
-            const transforme = resultat.success ? (resultat.transforme ?? extrait) : null;
+            try {
+                const resultat = await lireTcfCe(infoCarte.id);
+                const extrait = resultat.success ? (resultat.extrait ?? []) : [];
+                let transforme = resultat.success ? (resultat.transforme ?? extrait) : null;
+                if (transforme && !Array.isArray(transforme) && Array.isArray((transforme as any).items)) {
+                    const ss = typeof (transforme as any).ss === 'string' ? (transforme as any).ss : '';
+                    transforme = (transforme as any).items;
+                    if (ss) (transforme as any).ss = ss;
+                }
 
-            const ouvrirCarte = () => {
-                selecteurCartes.selectUnique(carte);
-                void afficherContenuTcfCe(zoneAffichage, infoCarte);
-            };
-            const carte = creerCarteTcfCe(infoCarte, extrait, transforme, ouvrirCarte, () =>
-                void remplirZoneTcfCe(page)
-            );
-            listeCartes.addItem(carte);
+                const ouvrirCarte = () => {
+                    selecteurCartes.selectUnique(carte);
+                    void afficherContenuTcfCe(zoneAffichage, infoCarte);
+                };
+                const carte = creerCarteTcfCe(infoCarte, extrait, transforme, ouvrirCarte, () =>
+                    void remplirZoneTcfCe(page)
+                );
+                listeCartes.addItem(carte);
 
-            if (!ouvrirPremiereCarte) ouvrirPremiereCarte = ouvrirCarte;
+                if (!ouvrirPremiereCarte) ouvrirPremiereCarte = ouvrirCarte;
+            } catch (err) {
+                console.error('[TCF CE] carte ignorée (chargement):', infoCarte.id, err);
+            }
         }
 
         // Ouvre par défaut la première carte, s'il y en a au moins une.
@@ -217,7 +227,13 @@ const afficherContenuTcfCe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
     }
 
     const extrait = resultat.extrait ?? [];
-    const transforme = resultat.transforme ?? extrait;
+    let transforme = resultat.transforme ?? extrait;
+    if (transforme && !Array.isArray(transforme) && Array.isArray((transforme as any).items)) {
+        const ss = typeof (transforme as any).ss === 'string' ? (transforme as any).ss : '';
+        transforme = (transforme as any).items;
+        if (ss) (transforme as any).ss = ss;
+    }
+    if (!Array.isArray(transforme)) transforme = [];
     if (extrait.length === 0) {
         afficherMessageZone(zoneAffichage, 'Aucune question à afficher.');
         return;
@@ -229,9 +245,19 @@ const afficherContenuTcfCe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
     // L'image de l'énoncé, elle, est enregistrée à part (voir
     // construireBlocEnonce) dès sa composition, sans attendre de perte
     // de focus.
+    const optionsAvecDefautSiVides = (options: string[] | undefined): string[] => {
+        const opts = Array.isArray(options) ? options.map((o) => (o != null ? String(o) : '')) : [];
+        if (opts.some((o) => o.trim() !== '')) return opts;
+        return ['Proposition A', 'Proposition B', 'Proposition C', 'Proposition D'];
+    };
+
     const etatTransforme: QuestionCE[] = extrait.map((question, index) => ({
         points: transforme[index]?.points ?? question.points,
-        options: Array.isArray(transforme[index]?.options) ? [...(transforme[index]!.options)] : [...question.options],
+        options: optionsAvecDefautSiVides(
+            Array.isArray(transforme[index]?.options)
+                ? [...(transforme[index]!.options)]
+                : [...(question.options ?? [])]
+        ),
         correctAnswerIndex: transforme[index]?.correctAnswerIndex ?? question.correctAnswerIndex,
         enonce: transforme[index]?.enonce ?? question.enonce,
         question: transforme[index]?.question ?? question.question,
@@ -259,6 +285,51 @@ const afficherContenuTcfCe = async (zoneAffichage: HTMLDivElement, infoCarte: Ca
     enteteTitre.className = 'affichage-embed-entete-titre';
     enteteTitre.textContent = `${infoCarte.nom} — CE`;
     enteteEmbed.appendChild(enteteTitre);
+
+    // Champ "Nom du sujet (ss)" — même comportement que zoneAff.ts
+    // (TEF / TCF·CO) : vide = auto via decouperSerieEtTest à l'export.
+    const zoneSs = document.createElement('div');
+    zoneSs.className = 'affichage-embed-ss';
+    const labelSs = document.createElement('label');
+    labelSs.className = 'affichage-embed-ss-label';
+    labelSs.textContent = 'Nom du sujet';
+    zoneSs.appendChild(labelSs);
+    const inputSs = document.createElement('input');
+    inputSs.type = 'text';
+    inputSs.className = 'affichage-embed-ss-input';
+    inputSs.placeholder = 'Auto (depuis le titre)';
+    inputSs.setAttribute('spellcheck', 'false');
+    inputSs.setAttribute('autocomplete', 'off');
+    const ssInitial = typeof (resultat as any)?.ss === 'string'
+        ? String((resultat as any).ss).trim()
+        : (typeof (transforme as any)?.ss === 'string' ? String((transforme as any).ss).trim() : '');
+    inputSs.value = ssInitial;
+    let ssCourant = ssInitial;
+    zoneSs.appendChild(inputSs);
+    const indicateurSs = document.createElement('span');
+    indicateurSs.className = 'zed-statut-save';
+    zoneSs.appendChild(indicateurSs);
+    const definirStatutSs = (statut: 'enregistrement' | 'ok' | 'erreur' | null): void => {
+        indicateurSs.className = 'zed-statut-save';
+        if (!statut) { indicateurSs.textContent = ''; return; }
+        indicateurSs.classList.add(`zed-statut-save--${statut}`);
+        indicateurSs.textContent = statut === 'enregistrement' ? 'Enregistrement...'
+            : statut === 'ok' ? 'Enregistré ✓' : "Échec de l'enregistrement";
+        if (statut === 'ok') setTimeout(() => { indicateurSs.className = 'zed-statut-save'; indicateurSs.textContent = ''; }, 2200);
+    };
+    const enregistrerSsSiModifie = async (): Promise<void> => {
+        const valeur = (inputSs.value ?? '').trim();
+        if (valeur === ssCourant) return;
+        definirStatutSs('enregistrement');
+        try {
+            const res = await sauvegarderSsConserveur('tcf', 'ce', infoCarte.id, valeur);
+            if (res.success) { ssCourant = valeur; definirStatutSs('ok'); }
+            else definirStatutSs('erreur');
+        } catch { definirStatutSs('erreur'); }
+    };
+    inputSs.addEventListener('blur', () => { void enregistrerSsSiModifie(); });
+    inputSs.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); inputSs.blur(); } });
+    enteteEmbed.appendChild(zoneSs);
 
     // Indicateur d'exportabilité : reste vide tant que toutes les
     // questions ne sont pas prêtes à l'exportation, sinon affiche

@@ -211,11 +211,19 @@ const compterTextesNonVides = (textes: string[] | undefined): number =>
     Array.isArray(textes) ? textes.filter((t) => !estVideValeur(t)).length : 0;
 
 export const calculerStatsExtraitTcfEeEo = (parties: PartieTacheTexte[]): StatCarte[] => {
-    const total = parties.length;
-    const totalTache2 = parties.reduce((s, p) => s + (Array.isArray(p.tache2) ? p.tache2.length : 0), 0);
-    const totalTache3 = parties.reduce((s, p) => s + (Array.isArray(p.tache3) ? p.tache3.length : 0), 0);
-    const nbTache2 = parties.reduce((s, p) => s + compterTextesNonVides(p.tache2), 0);
-    const nbTache3 = parties.reduce((s, p) => s + compterTextesNonVides(p.tache3), 0);
+    // Garde-fou : un transformé peut être stocké sous forme
+    // { ss, items } ; le lecteur doit normalement renvoyer le tableau,
+    // mais on ne plante plus si un objet non-tableau arrive ici.
+    const liste = Array.isArray(parties)
+        ? parties
+        : (parties && typeof parties === 'object' && Array.isArray((parties as any).items))
+            ? (parties as any).items as PartieTacheTexte[]
+            : [];
+    const total = liste.length;
+    const totalTache2 = liste.reduce((s, p) => s + (Array.isArray(p?.tache2) ? p.tache2.length : 0), 0);
+    const totalTache3 = liste.reduce((s, p) => s + (Array.isArray(p?.tache3) ? p.tache3.length : 0), 0);
+    const nbTache2 = liste.reduce((s, p) => s + compterTextesNonVides(p?.tache2), 0);
+    const nbTache3 = liste.reduce((s, p) => s + compterTextesNonVides(p?.tache3), 0);
     return [
         { valeur: String(total), label: total > 1 ? 'parties' : 'partie' },
         { valeur: `${nbTache2}/${totalTache2}`, label: 'tâche 2' },
@@ -225,5 +233,5 @@ export const calculerStatsExtraitTcfEeEo = (parties: PartieTacheTexte[]): StatCa
 
 export const calculerStatsTransformeTcfEeEo = (parties: PartieTacheTexte[] | null | undefined): StatCarte[] | null => {
     if (!parties) return null;
-    return calculerStatsExtraitTcfEeEo(parties);
+    return calculerStatsExtraitTcfEeEo(parties as PartieTacheTexte[]);
 };

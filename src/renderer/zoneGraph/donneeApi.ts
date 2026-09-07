@@ -164,6 +164,16 @@ export const sauvegarderTransformConserveur = (
     return window.api.invoke('conserveur:save-transform', { examen, type, id, donnees });
 };
 
+/** Enregistre uniquement le ss manuel (nom de série) dans le JSON transformé. */
+export const sauvegarderSsConserveur = (
+    examen: TypeExamen,
+    type: TypeEpreuve,
+    id: string,
+    ss: string
+): Promise<ResultatSauvegardeTransform> => {
+    return window.api.invoke('conserveur:save-ss', { examen, type, id, ss });
+};
+
 // Supprime définitivement une série (dossier + référence) — voir
 // creerBoutonSupprimerCarte dans carteSuppression.ts, utilisé par
 // zoneAccueilTef.ts.

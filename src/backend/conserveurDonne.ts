@@ -99,6 +99,52 @@ export function getTransJsonPath(serieDir: string, type: TypeEpreuve): string {
     return path.join(serieDir, `trans_${type}.json`);
 }
 
+// ---------------------------------------------------------------------
+// ss manuel (nom de série envoyé à l'export)
+// ---------------------------------------------------------------------
+//
+// Stocké dans le JSON transformé :
+//   - CE / CO (historiquement un tableau) :
+//       ancien format : [ {...}, {...} ]
+//       nouveau format : { "ss": "…", "items": [ {...}, {...} ] }
+//   - EE / EO (objet A/B) :
+//       { "ss": "…", "A": {...}, "B": {...} }
+//
+// Lecture toujours rétro-compatible : un ancien fichier tableau ou
+// sans clé "ss" renvoie ss = undefined / "".
+
+/** Décode un JSON transformé CE/CO (tableau legacy ou objet {ss, items}). */
+export function parserTransformCeCo(brut: any): { items: any[]; ss: string } {
+    if (Array.isArray(brut)) {
+        return { items: brut, ss: '' };
+    }
+    if (brut && typeof brut === 'object') {
+        const items = Array.isArray(brut.items)
+            ? brut.items
+            : Array.isArray(brut.data)
+                ? brut.data
+                : [];
+        const ss = typeof brut.ss === 'string' ? brut.ss.trim() : '';
+        return { items, ss };
+    }
+    return { items: [], ss: '' };
+}
+
+/** Encode CE/CO pour écriture : conserve le tableau pur si ss vide, sinon objet. */
+export function serialiserTransformCeCo(items: any[], ss: string): any {
+    const ssNettoye = (ss ?? '').trim();
+    if (!ssNettoye) return items;
+    return { ss: ssNettoye, items };
+}
+
+/** Lit ss depuis un JSON transformé EE/EO (objet). */
+export function extraireSsDepuisObjet(brut: any): string {
+    if (brut && typeof brut === 'object' && !Array.isArray(brut) && typeof brut.ss === 'string') {
+        return brut.ss.trim();
+    }
+    return '';
+}
+
 /** Déduit le type à partir d'un nom de dossier ("tef_<type>_..."). */
 export function parserNomDossier(
     dossier: string
@@ -321,6 +367,22 @@ export function construirePropositions(item: any): {
 
     const textes = [correcte, ...distracteurs].slice(0, 4);
     while (textes.length < 4) textes.push('');
+
+    // Extrait sans aucune proposition : remplir A→D dans l'ordre avec
+    // "Proposition A" … "Proposition D" (pas de mélange, pas de vide).
+    // Ça active l'export côté UI et fournit un transformé valide.
+    const aucunTexte = textes.every((t) => !t || String(t).trim() === '');
+    if (aucunTexte) {
+        return {
+            propositions: {
+                A: 'Proposition A',
+                B: 'Proposition B',
+                C: 'Proposition C',
+                D: 'Proposition D',
+            },
+            bonneReponse: '',
+        };
+    }
 
     const lettres = melangerLettres(['A', 'B', 'C', 'D']);
     const propositions: PropositionsCE = { A: '', B: '', C: '', D: '' };
@@ -617,15 +679,21 @@ export async function lireTransformData(
     };
 
     if (type === 'ce' || type === 'co') {
-        return (donnees as any[]).map((item) => ({
+        const { items, ss } = parserTransformCeCo(donnees);
+        const itemsResolus = items.map((item) => ({
             ...item,
             _localImage: versFileUrl(item.image),
             ...(type === 'co' ? { _localAudio: versFileUrl(item.audio) } : {}),
         }));
+        // On attache ss sur le tableau (propriété non-index) pour que
+        // l'appelant puisse le lire sans changer le contrat "tableau
+        // d'items" utilisé par initialiserEtatDepuisTransforme.
+        (itemsResolus as any).ss = ss;
+        return itemsResolus;
     }
 
     if (type === 'eo') {
-        const resultat: any = {};
+        const resultat: any = { ss: extraireSsDepuisObjet(donnees) };
         for (const lettre of ['A', 'B']) {
             resultat[lettre] = {
                 ...donnees[lettre],
@@ -635,7 +703,11 @@ export async function lireTransformData(
         return resultat;
     }
 
-    return donnees; // ee
+    // ee
+    if (donnees && typeof donnees === 'object' && !Array.isArray(donnees)) {
+        return { ...donnees, ss: extraireSsDepuisObjet(donnees) };
+    }
+    return donnees;
 }
 
 export async function lireCoupleDonnees(
@@ -763,10 +835,13 @@ export async function sauvegarderTransformCeOuCo(
 
         const fichierJson = getTransJsonPath(serieDir, type);
         let existant: any[] = [];
+        let ssExistant = '';
         if (await existeChemin(fichierJson)) {
             try {
                 const parse = JSON.parse(await fsp.readFile(fichierJson, 'utf-8'));
-                existant = Array.isArray(parse) ? parse : [];
+                const decode = parserTransformCeCo(parse);
+                existant = decode.items;
+                ssExistant = decode.ss;
             } catch {
                 existant = [];
             }
@@ -823,7 +898,7 @@ export async function sauvegarderTransformCeOuCo(
         );
         await fsp.writeFile(
             fichierJson,
-            JSON.stringify(resultatFinal, null, 2),
+            JSON.stringify(serialiserTransformCeCo(resultatFinal, ssExistant), null, 2),
             'utf-8'
         );
         return { success: true };
@@ -853,10 +928,12 @@ export async function sauvegarderTransformEE(
             }
         }
 
-        const resultat = {
+        const resultat: any = {
             A: { consigne: donnees.A?.consigne ?? existant.A?.consigne ?? '' },
             B: { consigne: donnees.B?.consigne ?? existant.B?.consigne ?? '' },
         };
+        const ss = extraireSsDepuisObjet(existant);
+        if (ss) resultat.ss = ss;
         await fsp.writeFile(fichierJson, JSON.stringify(resultat, null, 2), 'utf-8');
         return { success: true };
     } catch (err: any) {
@@ -909,8 +986,68 @@ export async function sauvegarderTransformEO(
                 description: envoye.description ?? precedent.description,
             };
         }
+        const ss = extraireSsDepuisObjet(existant);
+        if (ss) resultat.ss = ss;
 
         await fsp.writeFile(fichierJson, JSON.stringify(resultat, null, 2), 'utf-8');
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+    }
+}
+
+/**
+ * Enregistre uniquement le champ ss (nom de série manuel) dans le JSON
+ * transformé de la série, sans toucher aux items / sections A-B.
+ * Si ss est vide, la clé est retirée (repli sur decouperSerieEtTest à l'export).
+ */
+export async function sauvegarderSsTransform(
+    type: TypeEpreuve,
+    id: string,
+    ss: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const serieDir = getCheminSerieParId(type, id);
+        if (!serieDir) return { success: false, error: 'Série introuvable' };
+
+        const fichierJson = getTransJsonPath(serieDir, type);
+        const ssNettoye = (ss ?? '').trim();
+
+        let brut: any = null;
+        if (await existeChemin(fichierJson)) {
+            try {
+                brut = JSON.parse(await fsp.readFile(fichierJson, 'utf-8'));
+            } catch {
+                brut = null;
+            }
+        }
+
+        if (type === 'ce' || type === 'co') {
+            const { items } = parserTransformCeCo(brut);
+            await fsp.writeFile(
+                fichierJson,
+                JSON.stringify(serialiserTransformCeCo(items, ssNettoye), null, 2),
+                'utf-8'
+            );
+            return { success: true };
+        }
+
+        // EE / EO : objet { A, B, ss? }
+        const base =
+            brut && typeof brut === 'object' && !Array.isArray(brut)
+                ? { ...brut }
+                : type === 'ee'
+                    ? { A: { consigne: '' }, B: { consigne: '' } }
+                    : {
+                          A: { image: '', consigne: '', description: '' },
+                          B: { image: '', consigne: '', description: '' },
+                      };
+        if (ssNettoye) {
+            base.ss = ssNettoye;
+        } else {
+            delete base.ss;
+        }
+        await fsp.writeFile(fichierJson, JSON.stringify(base, null, 2), 'utf-8');
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err?.message ?? String(err) };

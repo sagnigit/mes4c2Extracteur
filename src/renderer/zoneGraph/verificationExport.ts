@@ -381,16 +381,26 @@ export const estSerieTcfCeExportable = (questions: QuestionCE[] | null | undefin
  * transformé a bien une entrée pour chacune (même longueur, même
  * ordre que l'extrait) et que TOUTES sont exportables.
  */
+const normaliserTableauTransforme = (transforme: any): any[] | null => {
+    if (Array.isArray(transforme)) return transforme;
+    if (transforme && typeof transforme === 'object' && Array.isArray(transforme.items)) {
+        return transforme.items;
+    }
+    return null;
+};
+
 export const estSerieTcfEeExportable = (extrait: PartieEE[], transforme: PartieEE[] | null | undefined): boolean => {
     if (!Array.isArray(extrait) || extrait.length === 0) return false;
-    if (!Array.isArray(transforme) || transforme.length !== extrait.length) return false;
-    return extrait.every((partieExtrait, index) => estExportableTcfEe(partieExtrait, transforme[index]));
+    const tab = normaliserTableauTransforme(transforme);
+    if (!tab || tab.length !== extrait.length) return false;
+    return extrait.every((partieExtrait, index) => estExportableTcfEe(partieExtrait, tab[index]));
 };
 
 export const estSerieTcfEoExportable = (extrait: PartieEO[], transforme: PartieEO[] | null | undefined): boolean => {
     if (!Array.isArray(extrait) || extrait.length === 0) return false;
-    if (!Array.isArray(transforme) || transforme.length !== extrait.length) return false;
-    return extrait.every((partieExtrait, index) => estExportableTcfEo(partieExtrait, transforme[index]));
+    const tab = normaliserTableauTransforme(transforme);
+    if (!tab || tab.length !== extrait.length) return false;
+    return extrait.every((partieExtrait, index) => estExportableTcfEo(partieExtrait, tab[index]));
 };
 
 // ---------------------------------------------------------------------

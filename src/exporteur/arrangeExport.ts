@@ -66,25 +66,48 @@ export interface ResultatArrangement {
 }
 
 // ---------------------------------------------------------------------
-// ss / tt (nom de série / numéro de test)
+// ss / tt (nom de série / numéro de test / libellé de session)
 // ---------------------------------------------------------------------
 //
-// ⚠️ À VÉRIFIER / AJUSTER : dans l'ancien code, "ss" ("Série {n}") et
-// "tt" ({m}) venaient du nom du DOSSIER de la série, sous la forme
-// stricte "{numSerie}_{numTest}" (ex: "135_65"). Cette convention n'a
-// plus cours telle quelle dans l'architecture actuelle (le dossier
-// s'appelle désormais "tef_ce_<slug-du-nom>_<idLien>" ou
-// "tcf_ce_<slug>_<idLien>"), donc on extrait maintenant ss/tt à partir
-// du NOM AFFICHABLE de l'élément (nomLien), en cherchant les deux
-// premiers nombres qu'il contient. Si le nom affichable réel ne suit
-// pas ce schéma (ex: titre de page quelconque plutôt que "135_65"),
-// c'est CE SEUL ENDROIT qu'il faut adapter.
-export function decouperSerieEtTest(nomAffichable: string): { ss: string; tt: string } {
-    const nombres = nomAffichable.match(/\d+/g) ?? [];
+// Utilisé UNIQUEMENT en repli lorsque aucun ss manuel n'a été saisi
+// dans la zone d'affichage (champ "Nom du sujet (ss)", stocké dans le
+// JSON transformé). Si un ss manuel est présent, gestion_export.ts
+// l'utilise tel quel et force tt = "".
+//
+// Comportement auto selon la zone :
+//
+//   • TCF · EE / EO
+//       → on renvoie le NOM AFFICHABLE de la carte TEL QUEL
+//         (ex. "Août 2026"). C'est ce libellé qui part en dernière
+//         position de chaque ligne sagni : mois + année, pas seulement
+//         l'année, et sans préfixe "Série ".
+//
+//   • Tout le reste (TCF · CE/CO, TEF · CE/CO/EE/EO)
+//       → on extrait les deux premiers nombres du nom affichable
+//         (convention héritée de l'ancien "{numSerie}_{numTest}") :
+//           "135_65"     → ss = "Série 135", tt = "65"
+//           "Août 2026"  → ss = "Série 2026", tt = ""
+//         Si aucun chiffre n'est trouvé, ss = nom affichable brut.
+//
+export function decouperSerieEtTest(
+    nomAffichable: string,
+    examen?: Examen,
+    type?: TypeEpreuve
+): { ss: string; tt: string } {
+    const nom = (nomAffichable ?? '').trim();
+
+    // TCF expression écrite / orale : libellé complet de la carte
+    // (mois + année), sans transformation.
+    if (examen === 'tcf' && (type === 'ee' || type === 'eo')) {
+        return { ss: nom, tt: '' };
+    }
+
+    // CE / CO (TCF + TEF) et TEF EE/EO : découpage numérique historique.
+    const nombres = nom.match(/\d+/g) ?? [];
     const numSerie = nombres[0] ?? '';
     const numTest = nombres[1] ?? '';
     return {
-        ss: numSerie ? `Série ${numSerie}` : nomAffichable,
+        ss: numSerie ? `Série ${numSerie}` : nom,
         tt: numTest,
     };
 }
@@ -152,6 +175,17 @@ export interface ItemComprehension {
     consigne?: string;
     propositions?: Record<string, string>;
     bonneReponse?: string;
+    /** Présent surtout pour TCF · CO (points issus de l'extrait / transformé). */
+    points?: number;
+}
+
+export interface OptionsArrangementComprehension {
+    /**
+     * true  → utiliser item.points du transformé (TCF · CO).
+     * false → grille de points selon la position (TEF · CE / TEF · CO).
+     * Défaut : false.
+     */
+    pointsDepuisDonnees?: boolean;
 }
 
 export async function arrangerComprehension(
@@ -159,18 +193,25 @@ export async function arrangerComprehension(
     type: 'ce' | 'co',
     cheminDossier: string,
     ss: string,
-    tt: string
+    tt: string,
+    options?: OptionsArrangementComprehension
 ): Promise<ResultatArrangement> {
     if (!Array.isArray(donnees) || donnees.length === 0) {
         return { paquets: [], mode: 'progressif', erreur: `Données ${type.toUpperCase()} transformées absentes ou vides.` };
     }
 
+    const pointsDepuisDonnees = options?.pointsDepuisDonnees === true;
     const paquets: PaquetEnvoi[] = [];
     const total = donnees.length;
 
     for (let i = 0; i < donnees.length; i++) {
         const item = donnees[i];
         const numeroQuestion = typeof item.index === 'number' ? item.index + 1 : i + 1;
+
+        // TCF · CO : points du transformé ; TEF : grille selon la position.
+        const pts = pointsDepuisDonnees
+            ? (typeof item.points === 'number' && Number.isFinite(item.points) ? item.points : 0)
+            : pointsPourQuestion(numeroQuestion);
 
         const propositions = item.propositions ?? { A: '', B: '', C: '', D: '' };
         const clesProp = Object.keys(propositions);
@@ -182,7 +223,7 @@ export async function arrangerComprehension(
             formulaire.append(`p${indice + 1}`, texte);
         });
         formulaire.append('res', String(clesProp.indexOf(item.bonneReponse ?? '')));
-        formulaire.append('pts', String(pointsPourQuestion(numeroQuestion)));
+        formulaire.append('pts', String(pts));
         formulaire.append('quest', String(numeroQuestion));
         formulaire.append('provent', 'ajaxSave');
         formulaire.append('ss', ss);
@@ -190,7 +231,7 @@ export async function arrangerComprehension(
 
         const corpsAffichage: Record<string, any> = {
             question: numeroQuestion,
-            pts: pointsPourQuestion(numeroQuestion),
+            pts,
             ss,
             tt,
             type: type === 'ce' ? 0 : 1,
@@ -512,12 +553,13 @@ export async function arrangerEO(
 // tâches 1 et 2, tache3[0..2] sont le thème + les 2 documents de la
 // tâche 3).
 //
-// Reproduit EXACTEMENT l'ancien genererExportExpEcrit + exportExpr
-// (enregistreExtract.js / exportSite.js) : une ligne par combinaison,
+// Une ligne par combinaison :
 //   [ <p>tâche1</p>, <p>tâche2</p>,
 //     <h2>thème</h2><h4>Document 1</h4><p>doc1</p><h4>Document 2</h4><p>doc2</p>,
 //     2,                          <- code de type (EE), fixe
-//     <numéro de série brut> ]    <- ancien tabEcrit[0], PAS le "ss" formaté
+//     <libellé session> ]         <- nom complet de la carte, ex. "Août 2026"
+//                                    (passé tel quel depuis gestion_export,
+//                                    sans extraction numérique de l'année)
 // Tout le tableau de lignes part en une seule requête urlencoded
 // (sagni = JSON.stringify(lignes)), jamais en plusieurs requêtes.
 // Chaque texte passe par enleverChevrons (retire les "<<"/">>" que le
@@ -561,14 +603,18 @@ function enleverChevrons(chaine?: string): string {
     return valeur.trim();
 }
 
-// Numéro de série "brut", tel que l'ancien tabEcrit[0] (ex: "135"),
-// c.-à-d. ss SANS le préfixe "Série " ajouté pour l'affichage
-// (decouperSerieEtTest) — c'est cette valeur brute que l'ancien
-// exportExpr ajoutait en dernière position de chaque ligne, jamais le
-// "ss" formaté.
+// Identifiant de session envoyé en dernière position de chaque ligne
+// sagni pour TCF · EE / EO.
+//
+// Depuis gestion_export, `ss` est le NOM COMPLET de la carte
+// (ex. "Août 2026") — pas un "Série N" numérique. On l'envoie tel quel
+// pour que le site distant affiche le mois + l'année, et non l'année
+// seule. Si un jour un préfixe "Série " était encore fourni, on le
+// retire pour rester compatible avec l'ancien contrat.
 const PREFIXE_SS = 'Série ';
-function numeroSerieBrut(ss: string): string {
-    return ss.startsWith(PREFIXE_SS) ? ss.slice(PREFIXE_SS.length) : ss;
+function identifiantSessionTcf(ss: string): string {
+    const brut = (ss ?? '').trim();
+    return brut.startsWith(PREFIXE_SS) ? brut.slice(PREFIXE_SS.length).trim() : brut;
 }
 
 export function arrangerTcfEeOuEo(
@@ -581,7 +627,8 @@ export function arrangerTcfEeOuEo(
         return { paquets: [], mode: 'unique', erreur: `Données ${type.toUpperCase()} (TCF) transformées absentes ou vides.` };
     }
 
-    const serieBrute = numeroSerieBrut(ss);
+    // Ex. "Août 2026" — libellé complet de la carte, pas seulement l'année.
+    const identifiantSession = identifiantSessionTcf(ss);
     const lignes: any[] = [];
 
     if (type === 'ee') {
@@ -597,7 +644,7 @@ export function arrangerTcfEeOuEo(
                 `<p>${enleverChevrons(tache2[1])}</p>`,
                 synthese,
                 INDICE_TYPE_EPREUVE.ee,
-                serieBrute,
+                identifiantSession,
             ]);
         }
     } else {
@@ -611,7 +658,7 @@ export function arrangerTcfEeOuEo(
                     `<p>${enleverChevrons(tache2[i])}</p>`,
                     `<p>${enleverChevrons(tache3[i])}</p>`,
                     INDICE_TYPE_EPREUVE.eo,
-                    serieBrute,
+                    identifiantSession,
                 ]);
             }
         }
